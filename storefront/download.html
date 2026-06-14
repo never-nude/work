@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ThreadKeep — Download &amp; Install</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#121110;--bg2:#181614;--ink:#f2ede4;--dim:#b5ab9c;--faint:#8a8174;
+    --rust:#e0623f;--rust-d:#c8512f;--plum:#a06fcf;--line:#2a2622;--maxw:820px;
+    --font:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  header.nav{border-bottom:1px solid var(--line)}
+  .nav .wrap{display:flex;align-items:center;justify-content:space-between;height:66px;max-width:1180px}
+  .brand{font-weight:800;letter-spacing:.14em;font-size:13px;text-transform:uppercase}
+  .nav a.back{color:var(--dim);font-size:15px}
+  .hero{text-align:center;padding:78px 0 18px}
+  .check{width:62px;height:62px;border-radius:50%;border:2px solid var(--rust);margin:0 auto 24px;position:relative}
+  .check::after{content:"";position:absolute;left:20px;top:16px;width:18px;height:30px;border-right:3px solid var(--rust);border-bottom:3px solid var(--rust);transform:rotate(40deg)}
+  h1{font-size:clamp(32px,5vw,46px);font-weight:800;letter-spacing:-.02em;margin:0 0 12px}
+  h1 .rust{color:var(--rust)}
+  .lead{color:var(--dim);font-size:18px;max-width:54ch;margin:0 auto}
+  .dlcard{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:30px;margin:38px 0;text-align:center}
+  .dlcard .file{color:var(--faint);font-size:14px;margin-bottom:18px}
+  .btn{display:inline-flex;align-items:center;gap:10px;font-weight:700;font-size:16px;padding:16px 30px;border-radius:12px;
+    background:var(--rust);color:#1b0f0a;border:none;cursor:pointer;text-decoration:none;transition:.15s}
+  .btn:hover{background:var(--rust-d)}
+  .emailnote{color:var(--faint);font-size:14px;margin-top:16px}
+  .emailnote.show{display:block}
+  section{padding:8px 0 30px}
+  .sec-num{display:block;font-size:15px;font-weight:800;letter-spacing:.08em;color:var(--rust);margin:34px 0 14px}
+  h2{font-size:26px;font-weight:800;letter-spacing:-.015em;margin:0 0 8px}
+  .steps{counter-reset:s;display:grid;gap:16px;margin-top:22px}
+  .step{position:relative;padding:18px 20px 18px 60px;background:var(--bg2);border:1px solid var(--line);border-radius:14px}
+  .step::before{counter-increment:s;content:counter(s);position:absolute;left:18px;top:17px;width:26px;height:26px;border-radius:50%;
+    background:var(--rust);color:#1b0f0a;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}
+  .step b{display:block;font-size:15.5px;margin-bottom:3px}
+  .step p{margin:0;color:var(--dim);font-size:14.5px}
+  .step code{background:#0e0d0c;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px}
+  .lic{background:#0e0d0c;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:26px;color:var(--dim);font-size:14px}
+  .lic b{color:var(--ink)}
+  footer{border-top:1px solid var(--line);padding:30px 0;margin-top:40px;color:var(--faint);font-size:13px;text-align:center}
+  footer a{color:var(--rust)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap"><span class="brand">ThreadKeep</span><a href="./" class="back">← Back to ThreadKeep</a></div></header>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="check"></div>
+    <h1>Thank you. <span class="rust">It's yours.</span></h1>
+    <p class="lead">Your purchase is complete. Download ThreadKeep below, then follow the four steps to get set up — it takes about a minute.</p>
+  </div>
+
+  <div class="dlcard">
+    <div class="file">ThreadKeep 1.0 · Universal · macOS 13+ · ~14 MB · signed &amp; notarized</div>
+    <a id="dlbtn" class="btn" href="#">Download ThreadKeep-1.0.dmg</a>
+    <p id="emailnote" class="emailnote">Your download link and license key were also emailed to you. Can't find it? Check spam, or email <a href="mailto:michael.kushman@gmail.com">michael.kushman@gmail.com</a>.</p>
+  </div>
+
+  <section>
+    <span class="sec-num">Install</span>
+    <h2>Four steps.</h2>
+    <div class="steps">
+      <div class="step"><b>Open the disk image</b><p>Double-click <code>ThreadKeep-1.0.dmg</code>, then drag <strong>ThreadKeep</strong> into your <code>Applications</code> folder.</p></div>
+      <div class="step"><b>Launch it</b><p>Open ThreadKeep from Applications. It's signed and notarized, so it opens normally. If macOS ever hesitates, right-click the app and choose <code>Open</code> once.</p></div>
+      <div class="step"><b>Allow ThreadKeep to read Messages</b><p>macOS asks your permission first. In <code>System Settings → Privacy &amp; Security</code>, turn on the switch for ThreadKeep, then reopen the app. Access is read-only and stays on your Mac.</p></div>
+      <div class="step"><b>Import your messages</b><p>Click <strong>Import Messages</strong> to build your library — everything, or just the conversations you choose.</p></div>
+    </div>
+
+    <div class="lic">
+      <b>Your license</b> — keep the key from your email to activate ThreadKeep and restore it on a new Mac. One purchase covers your personal Macs. Free updates throughout version 1.x.
+    </div>
+  </section>
+</div>
+
+<footer>© <span id="yr"></span> Michael Conor Kushman · <a href="https://kushman.work">kushman.work</a> · <a href="mailto:michael.kushman@gmail.com">support</a></footer>
+
+<script>
+  /* If you host the .dmg directly, set DOWNLOAD_URL. Leave blank to rely on the
+     processor's emailed/receipt download (keeps the file paid-gated). When blank,
+     the button points buyers to their email + receipt instead of a public file. */
+  const DOWNLOAD_URL = ""; // e.g. a Lemon Squeezy license/download link, or a signed URL
+  document.getElementById('yr').textContent=new Date().getFullYear();
+  const btn=document.getElementById('dlbtn');
+  if(DOWNLOAD_URL){
+    btn.href=DOWNLOAD_URL; btn.setAttribute('download','');
+  } else {
+    btn.addEventListener('click',e=>{
+      e.preventDefault();
+      document.getElementById('emailnote').style.color='var(--ink)';
+      btn.textContent='Check your email for the download link';
+    });
+  }
+</script>
+</body>
+</html>

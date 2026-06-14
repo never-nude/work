@@ -1,88 +1,416 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>kushman.work</title>
-    <meta
-      name="description"
-      content="The GitHub Pages home for kushman.work."
-    >
-    <style>
-      :root {
-        color-scheme: light dark;
-        --ink: #171717;
-        --paper: #f7f2ea;
-        --accent: #1f7a68;
-        --accent-2: #b43f32;
-        --line: rgba(23, 23, 23, 0.16);
-      }
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Michael Conor Kushman — I see form first.</title>
+<meta name="description" content="Michael Conor Kushman is a mixed-media artist who builds software. Two decades of painting, murals, and welded steel — the same eye, pointed at code.">
+<meta property="og:title" content="Michael Conor Kushman — I see form first.">
+<meta property="og:description" content="A mixed-media artist who builds software. Paintings, murals, welded steel — and working apps.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://kushman.work/">
+<meta property="og:image" content="https://kushman.work/images/featured-01-neil-young-scratchboard.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23e0623f'/%3E%3Ctext x='32' y='44' font-family='Arial,sans-serif' font-size='36' font-weight='700' text-anchor='middle' fill='%23121110'%3EK%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#121110; --bg2:#181614; --ink:#f2ede4; --dim:#b5ab9c; --faint:#8a8174;
+    --rust:#e0623f; --plum:#a06fcf; --line:#2a2622;
+    --maxw:1180px;
+    --font:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:500;line-height:1.6;-webkit-font-smoothing:antialiased}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} .reveal{transition:none!important;opacity:1!important;transform:none!important} }
+  a{color:inherit;text-decoration:none}
+  img{display:block;max-width:100%;height:auto}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  h1,h2,h3{margin:0;font-weight:700;letter-spacing:-.015em;line-height:1.08}
 
-      * {
-        box-sizing: border-box;
-      }
+  .grain{position:fixed;inset:0;z-index:200;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E")}
 
-      body {
-        min-height: 100vh;
-        margin: 0;
-        display: grid;
-        place-items: center;
-        background:
-          radial-gradient(circle at 20% 18%, rgba(31, 122, 104, 0.16), transparent 32rem),
-          radial-gradient(circle at 80% 84%, rgba(180, 63, 50, 0.14), transparent 26rem),
-          var(--paper);
-        color: var(--ink);
-        font-family:
-          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-          "Segoe UI", sans-serif;
-      }
+  nav{position:sticky;top:0;z-index:100;background:rgba(18,17,16,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{font-weight:800;font-size:.95rem;letter-spacing:.14em;text-transform:uppercase}
+  .navlinks{display:flex;gap:26px;font-weight:600;font-size:.92rem}
+  .navlinks a{color:var(--dim);transition:color .18s}
+  .navlinks a:hover,.navlinks a:focus-visible{color:var(--plum)}
+  @media(max-width:640px){.navlinks{gap:16px;font-size:.85rem}.brand{font-size:.8rem;letter-spacing:.1em}}
 
-      main {
-        width: min(100% - 2rem, 52rem);
-        padding: clamp(2rem, 7vw, 5rem) 0;
-      }
+  /* hero */
+  header{padding:78px 0 64px}
+  .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:54px;align-items:center}
+  @media(max-width:860px){.hero{grid-template-columns:1fr;gap:36px}}
+  .hero h1{font-size:clamp(2.6rem,6vw,4.6rem);font-weight:800}
+  .hero h1 .a{color:var(--rust)}
+  .hero p.sub{font-size:clamp(1.05rem,2vw,1.25rem);color:var(--dim);max-width:34ch;margin:1.3rem 0 0;font-weight:500}
+  .ctas{display:flex;gap:14px;margin-top:2.2rem;flex-wrap:wrap}
+  .cta{display:inline-block;background:var(--rust);color:#121110;font-weight:700;padding:.85rem 1.5rem;border-radius:8px;font-size:.95rem;transition:transform .15s,filter .15s}
+  .cta:hover{filter:brightness(1.07);transform:translateY(-1px)}
+  .cta.alt{background:transparent;color:var(--ink);border:1.5px solid var(--rust)}
+  .cta.alt:hover{color:var(--rust)}
+  .hero-art img{max-height:64vh;width:auto;max-width:100%;margin:0 auto;border-radius:6px;box-shadow:0 30px 80px -30px rgba(0,0,0,.9)}
+  .hero-art figcaption{margin-top:.7rem;font-size:.82rem;color:var(--faint);font-weight:500;text-align:center}
 
-      .mark {
-        width: 5.25rem;
-        aspect-ratio: 1;
-        margin-bottom: 2rem;
-        border: 1px solid var(--line);
-        border-radius: 50%;
-        background:
-          linear-gradient(135deg, transparent 45%, var(--accent) 46% 54%, transparent 55%),
-          linear-gradient(45deg, transparent 44%, var(--accent-2) 45% 55%, transparent 56%);
-      }
+  section{padding:84px 0;border-top:1px solid var(--line)}
+  .sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:42px}
+  .sec-num{color:var(--rust);font-weight:800;font-size:.95rem;letter-spacing:.08em}
+  .sec-head h2{font-size:clamp(1.7rem,3.6vw,2.5rem);font-weight:800}
+  .sec-sub{color:var(--faint);font-size:.95rem;margin:-30px 0 40px;font-weight:500}
 
-      h1 {
-        max-width: 12ch;
-        margin: 0;
-        font-size: clamp(3.5rem, 12vw, 9rem);
-        line-height: 0.9;
-        font-weight: 750;
-        letter-spacing: 0;
-      }
+  /* gallery */
+  .work{display:flex;flex-direction:column;gap:64px}
+  .piece{display:grid;gap:14px;justify-items:center}
+  .piece img{max-height:80vh;width:auto;max-width:100%;border-radius:4px;cursor:zoom-in;box-shadow:0 24px 70px -28px rgba(0,0,0,.85);transition:transform .2s}
+  .piece img:hover{transform:scale(1.005)}
+  .piece.quiet img{max-height:54vh}
+  .cap{display:flex;gap:14px;align-items:baseline;justify-content:center;flex-wrap:wrap;text-align:center}
+  .cap .t{font-weight:700;font-size:1.02rem}
+  .cap .m{color:var(--plum);font-weight:600;font-size:.84rem;letter-spacing:.04em}
+  .cap .n{color:var(--faint);font-size:.84rem;width:100%;font-weight:500}
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+  .trio{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:start}
+  .duo img,.trio img{max-height:none;width:100%}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+  .row2 figure{margin:0;display:grid;gap:12px;justify-items:center}
+  .row2 img{width:100%;border-radius:4px;cursor:zoom-in;box-shadow:0 24px 70px -28px rgba(0,0,0,.85);transition:transform .2s}
+  .row2 img:hover{transform:scale(1.005)}
+  @media(max-width:720px){.duo,.trio,.row2{grid-template-columns:1fr}}
 
-      p {
-        max-width: 36rem;
-        margin: 1.5rem 0 0;
-        font-size: clamp(1.05rem, 2vw, 1.35rem);
-        line-height: 1.55;
-      }
+  /* projects */
+  .projects{display:grid;grid-template-columns:repeat(6,1fr);gap:18px}
+  .proj{grid-column:span 2;border:1px solid var(--line);background:var(--bg2);border-radius:10px;padding:26px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s}
+  .proj.feature{grid-column:span 3;border-color:#3a2c24;background:linear-gradient(180deg,rgba(224,98,63,.05),transparent 50%),var(--bg2)}
+  .proj:hover{border-color:#3a342e}
+  .proj h3{color:var(--rust);font-size:1.15rem;font-weight:700}
+  .proj.feature h3{font-size:1.3rem}
+  .proj p{color:var(--dim);font-size:.93rem;margin:0;font-weight:500}
+  .proj .tags{margin-top:auto;padding-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+  .proj .tags span{color:var(--plum);font-weight:600;font-size:.78rem;letter-spacing:.05em}
+  .proj a.live{color:var(--ink);font-weight:600;font-size:.85rem;border-bottom:1px solid var(--rust);width:max-content;transition:color .18s}
+  .proj a.live:hover{color:var(--rust)}
+  @media(max-width:900px){.projects{grid-template-columns:1fr 1fr}.proj,.proj.feature{grid-column:span 1}}
+  @media(max-width:640px){.projects{grid-template-columns:1fr}}
 
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --ink: #f5efe6;
-          --paper: #171717;
-          --line: rgba(245, 239, 230, 0.18);
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <div class="mark" aria-hidden="true"></div>
-      <h1>kushman.work</h1>
-      <p>This site is wired up and ready for the work that comes next.</p>
-    </main>
-  </body>
+  /* about */
+  .about{max-width:62ch}
+  .about p{font-size:1.06rem;color:var(--ink);font-weight:500}
+  .about p.d{color:var(--dim)}
+  .about .thesis b{color:var(--rust);font-weight:700}
+  .edu{color:var(--faint);font-size:.92rem;margin-top:1.6rem;font-weight:500}
+  .tools{margin-top:2rem}
+  .tools h3{font-size:.85rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:.6rem}
+  .tools p{color:var(--dim);font-weight:600;font-size:.95rem}
+
+  /* archive */
+  .agrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:960px){.agrid{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:640px){.agrid{grid-template-columns:repeat(2,1fr)}}
+  .agrid figure{margin:0;position:relative}
+  .agrid img{width:100%;aspect-ratio:1/1.15;object-fit:cover;border-radius:4px;cursor:zoom-in;transition:filter .2s}
+  .agrid img:hover{filter:brightness(1.1)}
+  .agrid figcaption{font-size:.78rem;color:var(--faint);margin-top:.45rem;font-weight:500}
+  .agrid figcaption b{color:var(--dim);font-weight:600}
+
+  .contact{padding:90px 0 64px;text-align:center;border-top:1px solid var(--line)}
+  .contact h2{font-size:clamp(1.8rem,4vw,2.6rem);font-weight:800}
+  .contact .links{margin-top:1.8rem;display:flex;gap:26px;justify-content:center;flex-wrap:wrap;font-weight:600}
+  .contact .links a{border-bottom:2px solid var(--rust);padding-bottom:2px;transition:color .18s}
+  .contact .links a:hover{color:var(--rust)}
+  footer{padding:30px 0 50px;color:var(--faint);font-size:.82rem;text-align:center;font-weight:500}
+  footer a{color:var(--faint);border-bottom:1px solid transparent}
+  footer a:hover{color:var(--plum);border-color:var(--plum)}
+
+  /* lightbox */
+  .lb{position:fixed;inset:0;z-index:300;background:rgba(10,9,8,.96);display:none;align-items:center;justify-content:center;flex-direction:column;padding:30px}
+  .lb.open{display:flex}
+  .lb img{max-width:92vw;max-height:84vh;width:auto;height:auto;border-radius:4px}
+  .lb .lbcap{margin-top:14px;color:var(--dim);font-size:.92rem;text-align:center;font-weight:500}
+  .lb .lbcap b{color:var(--ink);font-weight:700}
+  .lb button{position:absolute;background:none;border:1px solid var(--line);color:var(--ink);border-radius:999px;cursor:pointer;font-family:inherit;font-size:1.1rem;width:44px;height:44px;display:flex;align-items:center;justify-content:center;transition:border-color .2s}
+  .lb button:hover{border-color:var(--rust)}
+  .lb .x{top:18px;right:18px}
+  .lb .prev{left:14px;top:50%;transform:translateY(-50%)}
+  .lb .next{right:14px;top:50%;transform:translateY(-50%)}
+
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s ease}
+  .reveal.in{opacity:1;transform:none}
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top">Michael Conor Kushman</a>
+    <div class="navlinks">
+      <a href="#work">Work</a>
+      <a href="#projects">Projects</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </div>
+</nav>
+
+<header id="top">
+  <div class="wrap hero">
+    <div>
+      <h1>I see <span class="a">form</span> first.</h1>
+      <p class="sub">Two decades of making physical things — paint, plaster, welded steel — now pointed at software.</p>
+      <div class="ctas">
+        <a class="cta alt" href="#work">See the work</a>
+        <a class="cta" href="#projects">See the software</a>
+      </div>
+    </div>
+    <figure class="hero-art reveal">
+      <img fetchpriority="high" src="images/featured-01-neil-young-scratchboard.jpg" alt="Neil Young — scratchboard portrait, white line on black" data-lb="0">
+      <figcaption>Neil Young — scratchboard. The original no longer exists; this photograph is the record.</figcaption>
+    </figure>
+  </div>
+</header>
+
+<main>
+<section id="work">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Selected work</h2></div>
+    <p class="sec-sub">Scratchboard, spray, plaster, charcoal, pastel, acrylic, colored pencil, welded steel.</p>
+    <div class="work">
+
+      <figure class="piece reveal">
+        <div class="duo">
+          <img loading="lazy" src="images/featured-02a-grandmother-mural.jpg" alt="Grandmother mural in lavender — photo-real portrait inside spray abstraction" data-lb="1">
+          <img loading="lazy" src="images/featured-02b-grandmother-mural.jpg" alt="Grandmother mural in sepia — photo-real portrait inside spray abstraction" data-lb="2">
+        </div>
+        <figcaption class="cap"><span class="t">Grandmother Murals</span><span class="m">SPRAY ENAMEL ON WALL</span><span class="n">One for each grandmother — photo-real portraits held inside spray abstraction.</span></figcaption>
+      </figure>
+
+      <div class="row2 reveal">
+        <figure>
+          <img loading="lazy" src="images/featured-04-crying-child.jpg" alt="Child — charcoal and pastel portrait on orange ground" data-lb="3">
+          <figcaption class="cap"><span class="t">Child</span><span class="m">CHARCOAL &amp; PASTEL ON ORANGE GROUND</span></figcaption>
+        </figure>
+        <figure>
+          <img loading="lazy" src="images/featured-06-serpent-and-hands.jpg" alt="Serpent and Hands — pastel, serpent coiled through outstretched hands" data-lb="4">
+          <figcaption class="cap"><span class="t">Serpent and Hands</span><span class="m">PASTEL</span></figcaption>
+        </figure>
+      </div>
+
+      <figure class="piece reveal">
+        <img loading="lazy" src="images/archive-steel-cutout.jpg" alt="Untitled steel installation — plasma-cut tree, city skyline and falling figures" data-lb="5">
+        <figcaption class="cap"><span class="t">Untitled (Steel Installation)</span><span class="m">PLASMA-CUT PLATE STEEL, WELDED TO ANGLE-IRON FRAME</span><span class="n">Wall installation — a tree dissolving into a skyline, roots becoming figures.</span></figcaption>
+      </figure>
+
+      <div class="row2 reveal">
+        <figure>
+          <img loading="lazy" src="images/featured-08-two-men-portrait.jpg" alt="Two Men — acrylic double portrait on black ground" data-lb="6">
+          <figcaption class="cap"><span class="t">Two Men</span><span class="m">ACRYLIC</span></figcaption>
+        </figure>
+        <figure>
+          <img loading="lazy" src="images/featured-09-florence-market.jpg" alt="Florence Market — acrylic cityscape with market vendor" data-lb="7">
+          <figcaption class="cap"><span class="t">Florence Market</span><span class="m">ACRYLIC</span></figcaption>
+        </figure>
+      </div>
+
+      <div class="row2 reveal">
+        <figure>
+          <img loading="lazy" src="images/featured-03-face-sculpture.jpg" alt="Face — plaster and mesh sculpture" data-lb="8">
+          <figcaption class="cap"><span class="t">Face</span><span class="m">PLASTER AND MESH</span></figcaption>
+        </figure>
+        <figure>
+          <img loading="lazy" src="images/featured-05-resting-woman.jpg" alt="Resting — acrylic portrait of a girl resting on her arm" data-lb="9">
+          <figcaption class="cap"><span class="t">Resting</span><span class="m">ACRYLIC ON PANEL</span></figcaption>
+        </figure>
+      </div>
+
+      <figure class="piece reveal">
+        <div class="trio">
+          <img loading="lazy" src="images/featured-07a-capoeira.jpg" alt="Capoeira study — figure falling, colored pencil" data-lb="10">
+          <img loading="lazy" src="images/featured-07b-capoeira.jpg" alt="Capoeira study — figure crouched mid-turn, colored pencil" data-lb="11">
+          <img loading="lazy" src="images/featured-07c-capoeira.jpg" alt="Capoeira study — figure extended, colored pencil" data-lb="12">
+        </div>
+        <figcaption class="cap"><span class="t">Capoeira Series</span><span class="m">COLORED PENCIL</span><span class="n">Figure studies from capoeira — balance, momentum, weight.</span></figcaption>
+      </figure>
+
+      <figure class="piece quiet reveal">
+        <img loading="lazy" src="images/featured-10-life-drawing.jpg" alt="Life drawing — charcoal, male figure from behind" data-lb="13">
+        <figcaption class="cap"><span class="t">Life Drawing</span><span class="m">CHARCOAL</span></figcaption>
+      </figure>
+
+    </div>
+  </div>
+</section>
+
+<section id="projects">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Projects</h2></div>
+    <p class="sec-sub">Nine projects — each designed and built solo, across iOS, macOS, and the web.</p>
+    <div class="projects">
+      <div class="proj feature reveal">
+        <h3>WPCNA</h3>
+        <p>Civic site for a White Plains neighborhood council. Residents submit notices; an AI-assisted pipeline sorts them for review — a person always makes the call. Includes Ask White Plains, a Q&amp;A assistant grounded in the site's own content.</p>
+        <div class="tags"><span>CIVIC</span><span>AI-ASSISTED</span><span>STATIC SITE</span></div>
+        <a class="live" href="https://wp-cna.github.io/demo12/" target="_blank" rel="noopener">View live</a>
+      </div>
+      <div class="proj feature reveal">
+        <h3>atrium.earth</h3>
+        <p>A digital sculpture museum in the browser — navigable rooms, heavy 3D models streamed in so the page never chokes.</p>
+        <div class="tags"><span>THREE.JS</span><span>WEBGL</span><span>3D</span></div>
+        <a class="live" href="https://atrium.earth" target="_blank" rel="noopener">atrium.earth</a>
+      </div>
+      <div class="proj reveal">
+        <h3>Ad Arma</h3>
+        <p>A turn-based strategy wargame on a hex grid, playable in the browser. I designed the rules and built the whole thing.</p>
+        <div class="tags"><span>GAME DESIGN</span><span>JAVASCRIPT</span><span>WEB</span></div>
+        <a class="live" href="https://ad-arma.com" target="_blank" rel="noopener">ad-arma.com</a>
+      </div>
+      <div class="proj reveal">
+        <h3>Signal Atlas</h3>
+        <p>A 3D look inside a neural network — how it's wired and what lights up as it works. You move through the model instead of reading charts.</p>
+        <div class="tags"><span>WEBGL</span><span>DATA VIZ</span><span>NEURAL NETS</span></div>
+        <a class="live" href="https://never-nude.github.io/digitalbrain-neural/" target="_blank" rel="noopener">Live demo</a>
+      </div>
+      <div class="proj reveal">
+        <h3>Wormhole</h3>
+        <p>First-person transit through a wormhole throat — live in the browser, physics tunable mid-flight.</p>
+        <div class="tags"><span>THREE.JS</span><span>SHADERS</span><span>REALTIME 3D</span></div>
+        <a class="live" href="https://never-nude.github.io/wormhole/" target="_blank" rel="noopener">Live demo</a>
+      </div>
+      <div class="proj reveal">
+        <h3>Mesh Atlas</h3>
+        <p>The catalog engine behind atrium.earth — indexes and streams large 3D scans so a museum's worth of sculpture loads smoothly in a browser.</p>
+        <div class="tags"><span>3D PIPELINE</span><span>THREE.JS</span><span>PERFORMANCE</span></div>
+      </div>
+      <div class="proj reveal">
+        <h3>ThreadKeep</h3>
+        <p>A macOS app that archives iMessage history into a durable, searchable record — conversations that would otherwise quietly disappear.</p>
+        <div class="tags"><span>MACOS</span><span>SWIFTUI</span></div>
+        <a class="live" href="storefront/">View live</a>
+      </div>
+      <div class="proj reveal">
+        <h3>HouseScan</h3>
+        <p>An iPhone app that scans the outside of a house into a 3D model using the phone's LiDAR sensor, then exports a clean model.</p>
+        <div class="tags"><span>IOS</span><span>ARKIT</span><span>LIDAR</span></div>
+      </div>
+      <div class="proj reveal">
+        <h3>SoundFind</h3>
+        <p>An iPhone app that finds a misplaced Bluetooth device by reading its signal strength — warmer, colder, found.</p>
+        <div class="tags"><span>IOS</span><span>SWIFT</span><span>COREBLUETOOTH</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="about">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>About</h2></div>
+    <div class="about">
+      <p class="thesis">I'm a mixed-media artist who builds software. Twenty years of painting, murals, figure work, and welded steel trained my eye for <b>form, composition, and space</b>. Software is the newest material.</p>
+      <p class="d">For fifteen years I worked deliberately outside the conventional career track: earthquake relief in Haiti, teaching in West Africa, furniture fabrication upstate, and a steady independent studio practice.</p>
+      <p class="edu">Connecticut College — B.A., 2008</p>
+      <div class="tools">
+        <h3>Tools I work in</h3>
+        <p>Swift / SwiftUI · React · TypeScript · Python · Node</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="archive">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Archive</h2></div>
+    <p class="sec-sub">The longer record. Click anything to view.</p>
+    <div class="agrid" id="agrid"></div>
+  </div>
+</section>
+</main>
+
+<section class="contact" id="contact">
+  <div class="wrap">
+    <h2>Let's make something.</h2>
+    <div class="links">
+      <a href="mailto:michael.kushman@gmail.com">michael.kushman@gmail.com</a>
+      <a href="https://github.com/never-nude" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</section>
+
+<footer><div class="wrap">© <span id="yr"></span> Michael Conor Kushman · <a href="#top">kushman.work</a></div></footer>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Artwork viewer">
+  <button class="x" id="lbx" aria-label="Close">×</button>
+  <button class="prev" id="lbp" aria-label="Previous">‹</button>
+  <button class="next" id="lbn" aria-label="Next">›</button>
+  <img id="lbimg" src="" alt="">
+  <div class="lbcap" id="lbcap"></div>
+</div>
+
+<script>
+  document.getElementById('yr').textContent=new Date().getFullYear();
+
+  var ARCHIVE=[
+    {f:"archive-motherboard-2017",t:"Motherboard",y:"2017",m:"Mixed media on circuit board"},
+    {f:"archive-discussion-2025",t:"Discussion",y:"2025",m:"Acrylic"},
+    {f:"archive-diogenes-2022",t:"Diogenes",y:"2022",m:"Acrylic"},
+    {f:"archive-pareidolia-iv",t:"Pareidolia IV (Mantis)",m:"Acrylic on panel"},
+    {f:"archive-kraft-collage",t:"Untitled (Collage)",m:"Torn canvas on kraft"},
+    {f:"archive-tabula-rasa",t:"Tabula Rasa",m:"Mixed media"},
+    {f:"archive-linear-abstract-black",t:"Untitled (Linear Abstract)",m:"Mixed media on black ground"},
+    {f:"archive-lighthouse",t:"Lighthouse",m:"Acrylic"},
+    {f:"archive-timber-frame",t:"Timber Frame",m:"Acrylic"},
+    {f:"archive-sabertooth-skulls",t:"Saber-tooth Skulls",m:"Acrylic on black ground"}
+  ];
+
+  var ITEMS=[];
+  document.querySelectorAll('img[data-lb]').forEach(function(im){
+    ITEMS.push({src:im.getAttribute('src'),cap:im.alt});
+  });
+
+  var grid=document.getElementById('agrid');
+  ARCHIVE.forEach(function(a){
+    var idx=ITEMS.length;
+    ITEMS.push({src:"images/"+a.f+".jpg",cap:a.t+(a.y?" ("+a.y+")":"")+" — "+a.m});
+    var fig=document.createElement('figure');
+    fig.className='reveal';
+    fig.innerHTML='<img loading="lazy" src="images/'+a.f+'-thumb.jpg" alt="'+a.t+' — '+a.m+'" data-i="'+idx+'">'+
+      '<figcaption><b>'+a.t+'</b>'+(a.y?' ('+a.y+')':'')+' — '+a.m+'</figcaption>';
+    fig.querySelector('img').addEventListener('click',function(){openLB(idx);});
+    grid.appendChild(fig);
+  });
+
+  var lb=document.getElementById('lb'),lbimg=document.getElementById('lbimg'),lbcap=document.getElementById('lbcap');
+  var cur=0,lastFocus=null;
+  function openLB(i){
+    cur=i;lastFocus=document.activeElement;
+    lbimg.src=ITEMS[i].src;lbimg.alt=ITEMS[i].cap;
+    lbcap.innerHTML='<b>'+ITEMS[i].cap.split(' — ')[0]+'</b>'+(ITEMS[i].cap.indexOf(' — ')>-1?' — '+ITEMS[i].cap.split(' — ').slice(1).join(' — '):'');
+    lb.classList.add('open');document.body.style.overflow='hidden';
+    document.getElementById('lbx').focus();
+  }
+  function closeLB(){lb.classList.remove('open');document.body.style.overflow='';if(lastFocus)lastFocus.focus();}
+  function step(d){var n=(cur+d+ITEMS.length)%ITEMS.length;openLB(n);}
+  document.querySelectorAll('img[data-lb]').forEach(function(im){
+    im.addEventListener('click',function(){openLB(parseInt(im.getAttribute('data-lb'),10));});
+    im.setAttribute('tabindex','0');
+    im.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openLB(parseInt(im.getAttribute('data-lb'),10));}});
+  });
+  document.getElementById('lbx').addEventListener('click',closeLB);
+  document.getElementById('lbp').addEventListener('click',function(){step(-1);});
+  document.getElementById('lbn').addEventListener('click',function(){step(1);});
+  lb.addEventListener('click',function(e){if(e.target===lb)closeLB();});
+  document.addEventListener('keydown',function(e){
+    if(!lb.classList.contains('open'))return;
+    if(e.key==='Escape')closeLB();
+    if(e.key==='ArrowLeft')step(-1);
+    if(e.key==='ArrowRight')step(1);
+  });
+
+  var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}});},{threshold:.1});
+  document.querySelectorAll('.reveal').forEach(function(el){io.observe(el);});
+</script>
+</body>
 </html>
