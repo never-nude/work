@@ -94,6 +94,7 @@
   .proj .tags span{color:var(--plum);font-weight:600;font-size:.78rem;letter-spacing:.05em}
   .proj a.live{color:var(--ink);font-weight:600;font-size:.85rem;border-bottom:1px solid var(--rust);width:max-content;transition:color .18s}
   .proj a.live:hover{color:var(--rust)}
+  .proj[data-status="hidden"]{display:none}
   @media(max-width:900px){.projects{grid-template-columns:1fr 1fr}.proj,.proj.feature{grid-column:span 1}}
   @media(max-width:640px){.projects{grid-template-columns:1fr}}
 
@@ -248,13 +249,13 @@
 <section id="projects">
   <div class="wrap">
     <div class="sec-head"><span class="sec-num">02</span><h2>Projects</h2></div>
-    <p class="sec-sub">Ten projects — each designed and built solo, across iOS, macOS, and the web.</p>
+    <p class="sec-sub">Selected software systems — browser-based 3D, civic AI workflows, spatial data interfaces, working apps, and interactive games.</p>
     <div class="projects">
       <div class="proj feature reveal">
-        <h3>WPCNA</h3>
-        <p>Civic site for a White Plains neighborhood council. Residents submit notices; an AI-assisted pipeline sorts them for review — a person always makes the call. Includes Ask White Plains, a Q&amp;A assistant grounded in the site's own content.</p>
-        <div class="tags"><span>CIVIC</span><span>AI-ASSISTED</span><span>STATIC SITE</span></div>
-        <a class="live" href="https://wp-cna.github.io/demo12/" target="_blank" rel="noopener">View live</a>
+        <h3>ThreadKeep</h3>
+        <p>A working app available for demonstration upon request.</p>
+        <div class="tags"><span>MACOS</span><span>SWIFTUI</span></div>
+        <a class="live" href="storefront/">View live</a>
       </div>
       <div class="proj feature reveal">
         <h3>atrium.earth</h3>
@@ -269,40 +270,40 @@
         <a class="live" href="https://worldbook.earth" target="_blank" rel="noopener">worldbook.earth</a>
       </div>
       <div class="proj reveal">
+        <h3>WPCNA</h3>
+        <p>Civic site for a White Plains neighborhood council. Residents submit notices; an AI-assisted pipeline sorts them for review — a person always makes the call. Includes Ask White Plains, a Q&amp;A assistant grounded in the site's own content.</p>
+        <div class="tags"><span>CIVIC</span><span>AI-ASSISTED</span><span>STATIC SITE</span></div>
+        <a class="live" href="https://wp-cna.github.io/demo12/" target="_blank" rel="noopener">View live</a>
+      </div>
+      <div class="proj reveal">
         <h3>Ad Arma</h3>
         <p>A turn-based strategy wargame on a hex grid, playable in the browser. I designed the rules and built the whole thing.</p>
         <div class="tags"><span>GAME DESIGN</span><span>JAVASCRIPT</span><span>WEB</span></div>
         <a class="live" href="https://ad-arma.com" target="_blank" rel="noopener">ad-arma.com</a>
       </div>
-      <div class="proj reveal">
+      <div class="proj reveal" data-status="hidden" hidden>
         <h3>Signal Atlas</h3>
         <p>A 3D look inside a neural network — how it's wired and what lights up as it works. You move through the model instead of reading charts.</p>
         <div class="tags"><span>WEBGL</span><span>DATA VIZ</span><span>NEURAL NETS</span></div>
         <a class="live" href="https://never-nude.github.io/digitalbrain-neural/" target="_blank" rel="noopener">Live demo</a>
       </div>
-      <div class="proj reveal">
+      <div class="proj reveal" data-status="hidden" hidden>
         <h3>Wormhole</h3>
         <p>First-person transit through a wormhole throat — live in the browser, physics tunable mid-flight.</p>
         <div class="tags"><span>THREE.JS</span><span>SHADERS</span><span>REALTIME 3D</span></div>
         <a class="live" href="https://never-nude.github.io/wormhole/" target="_blank" rel="noopener">Live demo</a>
       </div>
-      <div class="proj reveal">
+      <div class="proj reveal" data-status="hidden" hidden>
         <h3>Mesh Atlas</h3>
         <p>The catalog engine behind atrium.earth — indexes and streams large 3D scans so a museum's worth of sculpture loads smoothly in a browser.</p>
         <div class="tags"><span>3D PIPELINE</span><span>THREE.JS</span><span>PERFORMANCE</span></div>
       </div>
-      <div class="proj reveal">
-        <h3>ThreadKeep</h3>
-        <p>A macOS app that archives iMessage history into a durable, searchable record — conversations that would otherwise quietly disappear.</p>
-        <div class="tags"><span>MACOS</span><span>SWIFTUI</span></div>
-        <a class="live" href="storefront/">View live</a>
-      </div>
-      <div class="proj reveal">
+      <div class="proj reveal" data-status="hidden" hidden>
         <h3>HouseScan</h3>
         <p>An iPhone app that scans the outside of a house into a 3D model using the phone's LiDAR sensor, then exports a clean model.</p>
         <div class="tags"><span>IOS</span><span>ARKIT</span><span>LIDAR</span></div>
       </div>
-      <div class="proj reveal">
+      <div class="proj reveal" data-status="hidden" hidden>
         <h3>SoundFind</h3>
         <p>An iPhone app that finds a misplaced Bluetooth device by reading its signal strength — warmer, colder, found.</p>
         <div class="tags"><span>IOS</span><span>SWIFT</span><span>COREBLUETOOTH</span></div>
