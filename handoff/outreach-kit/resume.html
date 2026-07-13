@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Michael Conor Kushman — Résumé</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#1b1a18; --muted:#5c5852; --faint:#8a857d; --accent:#bf5a2c; --line:#e6e2db; --bg:#ffffff;
+    --serif:"Fraunces",Georgia,serif; --sans:"Inter",system-ui,Arial,sans-serif;
+  }
+  @page{ size: Letter; margin: 0; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+    font-size:10.6px;line-height:1.46;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .page{width:8.5in;min-height:11in;padding:0.62in 0.66in;margin:0 auto}
+  a{color:inherit;text-decoration:none}
+
+  header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;
+    border-bottom:2px solid var(--accent);padding-bottom:11px;margin-bottom:13px}
+  .name{font-family:var(--serif);font-weight:600;font-size:27px;line-height:1;letter-spacing:-.01em}
+  .name .sub{display:block;font-family:var(--sans);font-weight:500;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--accent);margin-top:7px}
+  .contact{text-align:right;font-size:10px;color:var(--muted);line-height:1.7;white-space:nowrap}
+  .contact a{color:var(--muted)}
+  .contact .em{color:var(--ink);font-weight:500}
+
+  .summary{color:#37342f;font-size:11px;line-height:1.5;margin-bottom:15px}
+  .summary b{color:var(--ink);font-weight:600}
+
+  h2{font-family:var(--sans);font-weight:600;font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--faint);margin:0 0 9px;display:flex;align-items:center;gap:9px}
+  h2::after{content:"";flex:1;height:1px;background:var(--line)}
+  section{margin-bottom:14px}
+
+  .proj{margin-bottom:8.5px}
+  .proj:last-child{margin-bottom:0}
+  .proj .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .proj .pname{font-family:var(--serif);font-weight:600;font-size:12.5px;color:var(--ink)}
+  .proj .url{font-size:9.5px;color:var(--accent);font-weight:500;letter-spacing:.02em}
+  .proj .desc{color:#403c37;font-size:10.5px;margin:1px 0 2px}
+  .proj .tech{font-size:9px;color:var(--faint);letter-spacing:.03em;text-transform:uppercase}
+
+  .cols{display:flex;gap:26px}
+  .cols .main{flex:1.32}
+  .cols .side{flex:1}
+  .xp{margin-bottom:9px}
+  .xp .r{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .xp .role{font-weight:600;font-size:11px;color:var(--ink)}
+  .xp .yr{font-size:9.5px;color:var(--faint);white-space:nowrap}
+  .xp .org{font-size:10px;color:var(--accent);font-weight:500;margin-bottom:1px}
+  .xp .d{font-size:10px;color:#494540}
+  .skill-line{margin-bottom:5px}
+  .skill-line .k{font-weight:600;color:var(--ink);font-size:10px}
+  .skill-line .v{color:#494540;font-size:10px}
+  .edu .d{font-size:10.5px;color:#403c37}
+  .edu .yr{color:var(--faint)}
+  .bg{font-size:10px;color:#494540;margin-top:6px}
+  .bg b{color:var(--ink);font-weight:600}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="name">Michael Conor Kushman
+      <span class="sub">AI-Native Product Builder · Artist Who Builds Software</span>
+    </div>
+    <div class="contact">
+      White Plains, NY · Open to relocation (tri-state area)<br/>
+      <span class="em">michael.kushman@gmail.com</span><br/>
+      kushman.work · github.com/never-nude
+    </div>
+  </header>
+
+  <p class="summary">
+    Mixed-media artist who now builds complete software products. For twenty years the materials were paint, plaster,
+    charcoal, and welded steel; software is the newest one. I turn ideas into finished, shipped apps end-to-end —
+    <b>3D web, data visualization, native macOS, games, and civic AI</b> — mostly solo, using AI-assisted development
+    plus product vision, UX, and systems design. The questions are the same as they always were: form, composition, space.
+  </p>
+
+  <section>
+    <h2>Selected Software</h2>
+
+    <div class="proj">
+      <div class="top"><span class="pname">Worldbook</span><span class="url">worldbook.earth</span></div>
+      <div class="desc">Interactive 3D atlas — 239 countries shaded live across dozens of data layers, with migration and refugee flows drawn as moving currents and a time scrubber to watch the world change.</div>
+      <div class="tech">Three.js · WebGL · Data visualization · Sourced datasets</div>
+    </div>
+
+    <div class="proj">
+      <div class="top"><span class="pname">Atrium</span><span class="url">atrium.earth</span></div>
+      <div class="desc">A museum for sculpture in the browser — rooms you move through, with large 3D scans streamed progressively so the space stays fast. 363 works, antiquity to the modern era.</div>
+      <div class="tech">Three.js · WebGL · Astro · Data pipeline</div>
+    </div>
+
+    <div class="proj">
+      <div class="top"><span class="pname">Ad Arma — The War Council</span><span class="url">ad-arma.com</span></div>
+      <div class="desc">A turn-based strategy wargame on a hex grid: original ruleset, custom engine, hidden-information "war council," and online multiplayer. I designed the rules and built every line.</div>
+      <div class="tech">Game design · Systems design · JavaScript · Real-time multiplayer</div>
+    </div>
+
+    <div class="proj">
+      <div class="top"><span class="pname">ThreadKeep</span><span class="url">macOS · public beta</span></div>
+      <div class="desc">A native macOS app that turns iMessage history into a searchable, local-first archive — built directly on Apple's undocumented message database. Private by default.</div>
+      <div class="tech">Swift · SwiftUI · Local-first · Platform craft</div>
+    </div>
+
+    <div class="proj">
+      <div class="top"><span class="pname">WPCNA</span><span class="url">wp-cna.org</span></div>
+      <div class="desc">Civic infrastructure for a White Plains neighborhood council, in production. Residents submit notices; an AI pipeline triages them for human review — a person always makes the call. "Ask White Plains" answers questions from the site's own content.</div>
+      <div class="tech">Civic tech · AI-assisted workflow · Static site</div>
+    </div>
+
+    <div class="proj">
+      <div class="top"><span class="pname">Treefort</span><span class="url">treefort.lol</span></div>
+      <div class="desc">A private "clubhouse" network — forts you knock to enter, each with a wall, a paint room, and a gif machine. No accounts, no feeds, no analytics; the whole thing runs on a single Cloudflare Worker with zero dependencies.</div>
+      <div class="tech">Cloudflare Workers · D1 + R2 · Zero dependencies</div>
+    </div>
+  </section>
+
+  <div class="cols">
+    <div class="main">
+      <section>
+        <h2>Experience</h2>
+        <div class="xp">
+          <div class="r"><span class="role">Independent Product Builder</span><span class="yr">2023 – Present</span></div>
+          <div class="org">Self-directed</div>
+          <div class="d">Design and ship complete software products end-to-end using AI-assisted development — the six above and counting. From first idea to live URL: product, interface, systems, and deploy.</div>
+        </div>
+        <div class="xp">
+          <div class="r"><span class="role">Mixed-Media Artist &amp; Sculptor</span><span class="yr">~20 years</span></div>
+          <div class="org">Independent · kushman.work</div>
+          <div class="d">Painting, murals, charcoal and pastel, plaster, and welded / plasma-cut steel. A working practice in form, composition, and space that now drives the software.</div>
+        </div>
+      </section>
+    </div>
+    <div class="side">
+      <section>
+        <h2>Skills</h2>
+        <div class="skill-line"><span class="k">Product:</span> <span class="v">vision, UX, systems design, rapid prototyping, 0→1 shipping</span></div>
+        <div class="skill-line"><span class="k">AI-native dev:</span> <span class="v">AI-assisted build workflows, spec-to-product</span></div>
+        <div class="skill-line"><span class="k">Web:</span> <span class="v">JavaScript / TypeScript, React, Node, Three.js / WebGL, Astro</span></div>
+        <div class="skill-line"><span class="k">Native:</span> <span class="v">Swift, SwiftUI (macOS)</span></div>
+        <div class="skill-line"><span class="k">Backend / infra:</span> <span class="v">Python, Cloudflare Workers, D1, R2</span></div>
+        <div class="skill-line"><span class="k">Craft:</span> <span class="v">visual &amp; interaction design; 20 yrs mixed-media art</span></div>
+      </section>
+    </div>
+  </div>
+
+  <section class="edu">
+    <h2>Education &amp; Background</h2>
+    <div class="d"><b>Connecticut College</b> — B.A., 2008<span class="yr"></span></div>
+    <div class="bg"><b>Selected background:</b> earthquake relief in Haiti · teaching in West Africa · furniture fabrication in Ulster County, NY · painting and sculpture throughout.</div>
+  </section>
+
+</div>
+</body>
+</html>
