@@ -1,0 +1,9 @@
+{
+  "name": "synthetic",
+  "label": "Synthetic test grid",
+  "center": {
+    "lat": 41.0335,
+    "lon": -73.763
+  },
+  "radiusM": 700
+}

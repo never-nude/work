@@ -1,0 +1,36 @@
+{
+  "name": "sniffari",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p . && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p .",
+    "fixture:synthetic": "node scripts/make-synthetic-fixture.mjs",
+    "fixture:fetch": "tsx scripts/fetch-fixture.ts",
+    "calibrate": "tsx scripts/calibrate.ts"
+  },
+  "dependencies": {
+    "flatbush": "^4.6.2",
+    "idb-keyval": "^6.3.0",
+    "maplibre-gl": "^6.11.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/geojson": "^7946.0.16",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
+}

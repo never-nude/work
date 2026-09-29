@@ -42,3 +42,20 @@ Validation actually performed:
 Open issues / blockers:
 Next step:
 Delivery (local, pushed, merged, deployment verified):
+
+---
+
+## 2026-09-29 — Sniffari Phase 0 + Phase 1 (Claude Code, cloud session)
+
+Task / owner / branch: Sniffari dog-walk route planner, new project in `sniffari/`. Claude Code cloud session. Branch `claude/loving-wozniak-aqkmrr` (draft PR against `main`).
+Completed:
+- Phase 0 plan with open questions: `sniffari/docs/PLAN.md`.
+- Phase 1: Overpass tile fetch + IndexedDB cache, graph build, edge features (Flatbush), all factor functions + exclusions, profiles, edge scoring, Web Worker pipeline, MapLibre street-quality heatmap with a tap-to-inspect breakdown, synthetic fixture, `fixture:fetch` and `calibrate` scripts.
+Validation actually performed: `npm test` (77 passing), `npm run typecheck`, `npm run build`; dev and production builds driven in headless Chromium on `?fixture=synthetic` (heatmap renders, inspector works on phone and desktop layouts).
+Open issues / blockers:
+- This environment's network policy blocks overpass-api.de, nominatim.openstreetmap.org and tiles.openfreemap.org, so live data, the real White Plains fixture and the basemap style were NOT verified.
+- `sniffari/` sits inside the kushman.work Pages repo; merging to `main` would publish an unbuilt dev page at /sniffari/. Decide on a dedicated repo before merging.
+- Brand artwork (app icon + logo) was shared in chat only; drop the PNGs into `sniffari/public/brand/`.
+- Model decisions awaiting Mike: see PLAN.md §6.
+Next step: locally, `cd sniffari && npm install && npm run fixture:fetch && npm run dev`, open `/?fixture=white-plains`, review the heatmap, answer PLAN.md §6, start filling `fixtures/ground-truth.json`. Phase 2 (loop routing) waits for go-ahead.
+Delivery: pushed to the feature branch; not merged; not deployed.
