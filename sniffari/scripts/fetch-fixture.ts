@@ -3,20 +3,28 @@
 //
 //   npm run fixture:fetch                       # default 1 mi radius
 //   npm run fixture:fetch -- --radius 2414      # 1.5 mi
+//   npm run fixture:fetch -- --name sterling --address "10 Sterling Ave, White Plains, NY"
+//
+// --name becomes fixtures/<name>.* and the app's ?fixture=<name>.
 //
 // Polite by design: one geocode request, one Overpass request, ~20 elevation tiles, descriptive User-Agent.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { bboxAround, buildQuery, fetchOverpass } from '../src/data/overpass';
 import { terrariumUrl, tilesForElevation } from '../src/data/elevation';
 
-const NAME = 'white-plains';
-const LABEL = 'AVE Hamilton Green, 25 Cottage Pl';
-const QUERY = '25 Cottage Place, White Plains, NY 10601';
+const arg = (flag: string): string | undefined => {
+  const i = process.argv.indexOf(flag);
+  return i > 0 ? process.argv[i + 1] : undefined;
+};
+
+const NAME = arg('--name') ?? 'white-plains';
+const QUERY = arg('--address') ?? '25 Cottage Place, White Plains, NY 10601';
+const LABEL = arg('--label') ?? (arg('--address') ? QUERY.split(',')[0]! : 'AVE Hamilton Green, 25 Cottage Pl');
+if (!/^[a-z0-9-]+$/.test(NAME)) throw new Error('--name must be lowercase letters, digits and dashes');
 const UA = 'Sniffari/0.1 (dog-walk route planner; dev fixture script; https://github.com/never-nude/work)';
 const MARGIN_M = 400;
 
-const argRadius = process.argv.indexOf('--radius');
-const radiusM = argRadius > 0 ? Number(process.argv[argRadius + 1]) : 1609;
+const radiusM = Number(arg('--radius') ?? 1609);
 
 async function main() {
   console.log(`Geocoding "${QUERY}"…`);

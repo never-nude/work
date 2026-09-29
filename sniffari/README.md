@@ -30,6 +30,8 @@ npm run dev                      # then open /?fixture=white-plains
 npm run calibrate                # model vs fixtures/ground-truth.json, with Spearman ρ
 ```
 
+Any other address: `npm run fixture:fetch -- --name <short-name> --address "<address>"`, then open `/?fixture=<short-name>` and `npm run calibrate -- --fixture <short-name>`.
+
 Ground-truth entries (SPEC §8, plus optional locators the app fills for you):
 
 ```json
