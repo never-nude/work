@@ -96,6 +96,15 @@ paste it back so we can tune.
 
 ## 6. Pushback, open questions, and decisions I made that are yours to overrule
 
+### Decided by Mike (2026-09-29)
+- **Busy streets must score low** → traffic veto on q (item 1 below, implemented).
+- **Terrain difficulty** added as factor 12 from Terrarium elevation tiles; Everyday 0.15, Senior 0.25.
+- **Separate sidewalks** → recommendation accepted (item 4, implemented); crossings go into the A\* cost in Phase 2 and tertiary crossings count (item 5).
+- **Dog parks neutral** by default; a "Count dog parks as green" preference opts in. No destination bonus in Phase 3.
+- **Everyday profile** is the default: quiet residential streets with sidewalks, green nearby for potty stops, flat, safe crossings.
+
+### Original list
+
 **Model**
 1. **Weighted mean compresses the range.** Sidewalk, lighting and surface score well almost
    everywhere, so a 4-lane arterial still lands ~0.35–0.45 under "Quiet". A dog-walker would call it

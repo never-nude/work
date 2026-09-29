@@ -4,9 +4,10 @@
 //   npm run fixture:fetch                       # default 1 mi radius
 //   npm run fixture:fetch -- --radius 2414      # 1.5 mi
 //
-// Polite by design: one geocode request, one Overpass request, descriptive User-Agent.
-import { writeFileSync } from 'node:fs';
+// Polite by design: one geocode request, one Overpass request, ~20 elevation tiles, descriptive User-Agent.
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { bboxAround, buildQuery, fetchOverpass } from '../src/data/overpass';
+import { terrariumUrl, tilesForElevation } from '../src/data/elevation';
 
 const NAME = 'white-plains';
 const LABEL = 'AVE Hamilton Green, 25 Cottage Pl';
@@ -42,7 +43,17 @@ async function main() {
     JSON.stringify({ name: NAME, label: LABEL, center, radiusM, fetchedAt: new Date().toISOString(), bbox }, null, 2) + '\n',
   );
   console.log(`  → ${data.elements.length.toLocaleString()} elements, ${(json.length / 1e6).toFixed(1)} MB in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
-  console.log(`Saved fixtures/${NAME}.{overpass,meta,geocode}.json — open the app with ?fixture=${NAME}`);
+
+  const tiles = tilesForElevation(bbox);
+  console.log(`Fetching ${tiles.length} elevation tiles…`);
+  const dir = `fixtures/${NAME}.elevation`;
+  mkdirSync(dir, { recursive: true });
+  for (const t of tiles) {
+    const r = await fetch(terrariumUrl(t.z, t.x, t.y), { headers: { 'User-Agent': UA } });
+    if (!r.ok) throw new Error(`Elevation tile ${t.z}/${t.x}/${t.y}: ${r.status}`);
+    writeFileSync(`${dir}/${t.z}-${t.x}-${t.y}.png`, Buffer.from(await r.arrayBuffer()));
+  }
+  console.log(`Saved fixtures/${NAME}.{overpass,meta,geocode}.json + ${dir}/ — open the app with ?fixture=${NAME}`);
 }
 
 main().catch((e) => {

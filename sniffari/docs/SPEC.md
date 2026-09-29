@@ -38,7 +38,7 @@ Each factor yields a subscore in [0,1] per edge (or per route for route-level fa
 |---|---|---|---|
 | 1 | **Sidewalk** | `sidewalk=both/left/right/separate`, `footway=sidewalk`, `highway=footway/pedestrian/path/living_street`. Low-speed residential w/o sidewalk ≈ 0.5. Secondary+ without sidewalk → excluded | Sidewalk-condition reports |
 | 2 | **Quiet / traffic** | Road class (living_street/residential 1.0 → tertiary 0.6 → secondary 0.3 → primary 0.1), `maxspeed`, `lanes`; distance buffer from nearest major road and from `railway=rail` | US DOT BTS National Transportation Noise Map raster |
-| 3 | **Grass / sniff access** | Proximity to `landuse=grass`, `leisure=park`, `natural=grassland/scrub`, `landuse=meadow`, `leisure=garden` (public) | NDVI from Sentinel-2 or NLCD |
+| 3 | **Grass / sniff access** | Bordering *or near* (≤400 m, decaying) `landuse=grass`, `leisure=park`, `natural=grassland/scrub`, `landuse=meadow`, `leisure=garden` (public) — somewhere to do business. Dog parks neutral unless the "Count dog parks" preference is on | NDVI from Sentinel-2 or NLCD |
 | 4 | **Shade** | `natural=tree`, `natural=tree_row`, `landuse=forest`, `natural=wood` nearby | NLCD Tree Canopy Cover |
 | 5 | **Crossings** | Route-level: count crossings of secondary+ roads; signalized (`crossing=traffic_signals`) scored better than marked, marked better than unmarked | — |
 | 6 | **Crowds / commercial density** | Density of `shop=*`, `amenity=restaurant/bar/cafe/fast_food`, bus stops, station proximity; scaled by time of day (lunch, evening, rush hour) | Foot-traffic data |
@@ -47,9 +47,9 @@ Each factor yields a subscore in [0,1] per edge (or per route for route-level fa
 | 9 | **Amenities (bonus)** | `amenity=waste_basket`, `vending=excrement_bags`, `amenity=drinking_water` (+`dog=yes`), `amenity=bench`, businesses with `dog=yes` | Crowdsourced |
 | 10 | **Rules** | `dog=no` → excluded; `dog=leashed` fine; `leisure=dog_park` as destination; `access=private/no` → excluded | Municipal park-rule data |
 | 11 | **Hazards** | `highway=construction`, `construction=*` → excluded | User reports |
-| 12 | **Elevation** | Skip in v1 | Open-Meteo elevation API; matters for senior dogs |
+| 12 | **Terrain** | Mean grade along each edge from Terrarium elevation tiles (AWS Open Data, keyless); flat 1.0 → 5% 0.6 → 8% 0.3 → 12%+ ~0; stairs 0.3 | Finer DEM / lidar |
 
-**Hard exclusions (never routed):** `highway=motorway/trunk` and their links, `access=private/no`, `dog=no`, construction, secondary+ roads with no sidewalk.
+**Hard exclusions (never routed):** `highway=motorway/trunk` and their links, `access=private/no`, `dog=no`, construction, secondary+ roads with no sidewalk, driveways, and secondary+ roads whose sidewalks are mapped separately (walk the sidewalk ways; pieces ≤30 m stay as crossing connectors). Crossings of tertiary+ roads count as busy-road crossings.
 
 ### Weather layer (Open-Meteo)
 - **Heat:** air ≥ 77°F and sunny/UV high → hot-pavement warning; shade and grass weights boosted, surface factor prefers unpaved.
@@ -61,6 +61,7 @@ Each factor yields a subscore in [0,1] per edge (or per route for route-level fa
 
 | Profile | Emphasis |
 |---|---|
+| **Everyday** (default; built around Ricky) | quiet 0.30 · grass 0.25 · sidewalk 0.20 · terrain 0.15 · crossings 0.15 · crowds 0.10 · shade 0.05 |
 | **Quiet / reactive** | quiet 0.35 · crowds 0.20 · crossings 0.15 · sidewalk 0.15 · grass 0.10 · shade 0.05 |
 | **Sniffy explorer** | grass 0.35 · shade 0.15 · quiet 0.15 · sidewalk 0.15 · crowds 0.10 · crossings 0.10 |
 | **Potty break** | Short; nearest good grass first, minimal crossings, return fast |
@@ -70,7 +71,7 @@ Amenities are additive bonuses, not weighted factors. Weather modifies weights a
 
 ## 6. Scoring model
 
-- **Edge quality** `q ∈ [0,1]` = weighted mean of factor subscores under the active profile (+ weather modifiers).
+- **Edge quality** `q ∈ [0,1]` = weighted mean of factor subscores under the active profile (+ weather modifiers), × a **traffic veto** `min(1, quiet/0.7)^0.75` so busy streets can never score well on sidewalks and lighting alone.
 - **Edge routing cost** = `length × (1 + α·(1 − q))`, α ≈ 3 (tunable). A great street costs roughly its length; a bad one costs up to 4× — so the router will detour for quality, but not absurdly.
 - **Route score (0–100)** = length-weighted mean of `q` × 100, then adjusted for: distance fit vs. target, crossing penalty, retracing penalty (loops shouldn't double back much), destination bonus, amenity bonus.
 - Everything must be explainable — reasons bubble up from factors to the route's "why" line.
@@ -80,7 +81,7 @@ Amenities are additive bonuses, not weighted factors. Weather modifies weights a
 1. Geocode start. Fetch OSM data via Overpass for a bbox of radius ≈ target/2 + margin; cache by tile in IndexedDB.
 2. Build a walkable graph (nodes, edges with tags). Precompute edge features using Flatbush spatial queries (proximity to grass, trees, major roads, rail, POIs).
 3. **Loops:** sample 24–48 candidate loop shapes (two intermediate waypoints at varied bearings and radii scaled to target distance), route each leg with A* on the cost function, penalizing edges already used in earlier legs to avoid retracing. Keep candidates within tolerance, score, select top 3 with < 40% pairwise overlap.
-4. **Destinations:** find candidate destinations within reach, route to each, rank by destination quality × route quality × fit. Out-and-back may return on a different path if it scores better.
+4. **Destinations:** (dog parks get no special bonus — neutral) find candidate destinations within reach, route to each, rank by destination quality × route quality × fit. Out-and-back may return on a different path if it scores better.
 5. All of steps 2–4 run in a Web Worker; UI shows progress.
 
 ## 8. Calibration

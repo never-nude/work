@@ -129,6 +129,14 @@ export interface EdgeFeatures {
   surface: SurfaceKind;
   lit: LitState;
 
+  lengthM: number;
+  /**
+   * Terrain from the elevation model: mean absolute grade (%) along the edge,
+   * and metres climbed per 100 m. null when elevation is unavailable.
+   */
+  gradePct: number | null;
+  climbPer100m: number | null;
+
   /** Median distance (m) of edge samples to the nearest other major road (secondary+). */
   distMajorRoadM: number;
   /** Median distance (m) to the nearest railway line. */
@@ -137,6 +145,10 @@ export interface EdgeFeatures {
   grassFraction: number;
   /** Distance (m) from the edge's closest sample to the nearest grass area. */
   nearGrassM: number;
+  /** Fraction of samples inside or within ~20 m of a dog park (kept apart from grass: opt-in preference). */
+  dogParkFraction: number;
+  /** Distance (m) to the nearest dog park. */
+  nearDogParkM: number;
   /** Mapped trees within 15 m, per 100 m of edge. */
   treesPer100m: number;
   /** Fraction of samples inside or within ~10 m of wood/forest/tree rows. */
@@ -177,7 +189,8 @@ export type EdgeFactorKey =
   | 'shade'
   | 'crowds'
   | 'surface'
-  | 'lighting';
+  | 'lighting'
+  | 'terrain';
 
 /** Route-level factors live alongside edge factors in a profile. */
 export type FactorKey = EdgeFactorKey | 'crossings';
@@ -200,6 +213,8 @@ export interface ScoringContext {
   /** Local hour 0–23 of the planned departure. */
   hour: number;
   isDark: boolean;
+  /** Count dog parks as sniffable green. Off by default: dog parks are neutral. */
+  dogParks?: boolean;
   /** Phase 4. Absent means "no weather adjustments". */
   weather?: WeatherContext;
 }
@@ -218,7 +233,7 @@ export interface Profile {
   shortWalk?: boolean;
 }
 
-export type ProfileId = 'quiet' | 'sniffy' | 'potty' | 'senior';
+export type ProfileId = 'everyday' | 'quiet' | 'sniffy' | 'potty' | 'senior';
 
 export interface EdgeScore {
   /** Quality in [0,1]. 0 for excluded edges. */
@@ -228,6 +243,8 @@ export interface EdgeScore {
   factors: Partial<Record<EdgeFactorKey, FactorResult>>;
   /** Amenity subscore in [0,1] — a bonus, not part of q. */
   amenities: FactorResult;
+  /** Traffic multiplier applied to the weighted mean (1 = no penalty). */
+  veto: number;
 }
 
 // ---------------------------------------------------------------- routing (Phase 2+)

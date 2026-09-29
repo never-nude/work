@@ -8,6 +8,7 @@ export const FACTOR_LABEL: Record<EdgeFactorKey, string> = {
   crowds: 'Calm (few crowds)',
   surface: 'Surface',
   lighting: 'Lighting',
+  terrain: 'Flat (terrain)',
 };
 
-export const FACTOR_ORDER: EdgeFactorKey[] = ['quiet', 'sidewalk', 'grass', 'shade', 'crowds', 'surface', 'lighting'];
+export const FACTOR_ORDER: EdgeFactorKey[] = ['quiet', 'sidewalk', 'grass', 'shade', 'crowds', 'terrain', 'surface', 'lighting'];

@@ -26,6 +26,8 @@ export interface HeatmapStats {
   meanQ: number;
   crossings: number;
   tiles: { total: number; cached: number };
+  /** Elevation tiles loaded (0 = terrain unavailable, factor falls back to neutral). */
+  elevationTiles: number;
   ms: { fetch: number; graph: number; features: number; score: number };
 }
 

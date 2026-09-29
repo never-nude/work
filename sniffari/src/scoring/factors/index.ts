@@ -6,6 +6,7 @@ import { quiet } from './quiet';
 import { shade } from './shade';
 import { sidewalk } from './sidewalk';
 import { surface } from './surface';
+import { terrain } from './terrain';
 
 export const EDGE_FACTORS: Record<EdgeFactorKey, EdgeFactor> = {
   sidewalk,
@@ -15,6 +16,7 @@ export const EDGE_FACTORS: Record<EdgeFactorKey, EdgeFactor> = {
   crowds,
   surface,
   lighting,
+  terrain,
 };
 
 export { amenities } from './amenities';

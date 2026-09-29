@@ -112,6 +112,9 @@ elements.push({
   members: [{ type: 'way', ref: 9101, role: 'outer', geometry: woodRing.map(([x, y]) => ll(x, y)) }],
 });
 
+// Dog park bordering Elm St west — must stay neutral (not counted as grass)
+area([[-290, -190], [-160, -190], [-160, -110], [-290, -110]], { leisure: 'dog_park', name: 'Bark Lot' });
+
 // Grass verge strip along Elm St east
 area([[100, -230], [260, -230], [260, -210], [100, -210]], { landuse: 'grass' });
 

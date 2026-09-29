@@ -10,6 +10,7 @@ import { exclusionReason } from './rules';
 import { shade } from './shade';
 import { sidewalk } from './sidewalk';
 import { surface } from './surface';
+import { gradeScore, terrain } from './terrain';
 import { EDGE_FACTORS } from '.';
 
 describe('every edge factor', () => {
@@ -77,9 +78,25 @@ describe('grass', () => {
     expect(hi).toBeGreaterThan(lo);
     expect(grass(makeFeatures({ grassFraction: 1 }), NOON).score).toBe(1);
   });
-  it('gives residential streets an unmapped-lawn baseline, but not arterials', () => {
-    expect(grass(makeFeatures({ roadClass: 'residential' }), NOON).score).toBe(0.3);
+  it('gives residential streets a small unmapped-lawn baseline, but not arterials', () => {
+    expect(grass(makeFeatures({ roadClass: 'residential' }), NOON).score).toBe(0.2);
     expect(grass(makeFeatures({ roadClass: 'primary' }), NOON).score).toBe(0);
+  });
+  it('ignores dog parks unless the preference is on', () => {
+    const f = makeFeatures({ roadClass: 'primary', dogParkFraction: 0.8, nearDogParkM: 0 });
+    expect(grass(f, NOON).score).toBe(0);
+    const on = grass(f, { ...NOON, dogParks: true });
+    expect(on.score).toBeGreaterThan(0.8);
+    expect(on.reason).toMatch(/dog park/);
+  });
+  it('rewards a green patch a short walk away, decaying with distance', () => {
+    const at = (d: number) => grass(makeFeatures({ roadClass: 'primary', nearGrassM: d }), NOON).score;
+    expect(at(30)).toBe(0.7);
+    expect(at(100)).toBeLessThan(at(30));
+    expect(at(300)).toBeLessThan(at(100));
+    expect(at(500)).toBe(0);
+    const r = grass(makeFeatures({ nearGrassM: 40 }), NOON);
+    expect(r.reason).toBe('Green patch 40 m away');
   });
 });
 
@@ -109,6 +126,21 @@ describe('crowds', () => {
   it('penalises stations and bus stops', () => {
     expect(crowds(makeFeatures({ distStationM: 100 }), NOON).score).toBeLessThan(1);
     expect(crowds(makeFeatures({ busStops: 2 }), NOON).score).toBeLessThan(1);
+  });
+});
+
+describe('terrain', () => {
+  it('is 1 when flat and falls with grade', () => {
+    expect(gradeScore(1)).toBe(1);
+    expect(gradeScore(5)).toBeCloseTo(0.6);
+    expect(gradeScore(8)).toBeCloseTo(0.3);
+    expect(gradeScore(20)).toBeCloseTo(0.05);
+    for (let g = 0; g < 15; g += 0.5) expect(gradeScore(g + 0.5)).toBeLessThanOrEqual(gradeScore(g) + 1e-9);
+  });
+  it('explains itself, penalises stairs, and is neutral without elevation', () => {
+    expect(terrain(makeFeatures({ gradePct: 6.2 }), NOON).reason).toBe('Hilly (6.2% grade)');
+    expect(terrain(makeFeatures({ roadClass: 'steps', gradePct: 1 }), NOON).score).toBe(0.3);
+    expect(terrain(makeFeatures({ gradePct: null }), NOON)).toEqual({ score: 0.8, reason: 'Elevation unavailable' });
   });
 });
 
@@ -151,6 +183,7 @@ describe('exclusions (rules + hazards)', () => {
     [{ foot: 'no' }, /No pedestrians/],
     [{ roadClass: 'secondary' as const, sidewalk: 'none' as const }, /no sidewalk/],
     [{ service: 'driveway' }, /Driveway/],
+    [{ roadClass: 'primary' as const, sidewalk: 'separate' as const, lengthM: 120 }, /mapped separately/],
   ])('%o is excluded', (over, re) => {
     expect(exclusionReason(makeFeatures(over))).toMatch(re);
   });
@@ -158,6 +191,8 @@ describe('exclusions (rules + hazards)', () => {
     expect(exclusionReason(makeFeatures({ dog: 'leashed' }))).toBeNull();
     expect(exclusionReason(makeFeatures({ access: 'private', foot: 'yes' }))).toBeNull();
     expect(exclusionReason(makeFeatures({ roadClass: 'secondary', sidewalk: 'unknown' }))).toBeNull();
+    // short piece of a separately-sidewalked road stays as a crossing connector
+    expect(exclusionReason(makeFeatures({ roadClass: 'primary', sidewalk: 'separate', lengthM: 15 }))).toBeNull();
   });
 });
 

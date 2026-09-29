@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeFeatures, NIGHT, NOON } from '../test/helpers';
 import { PROFILES, PROFILE_ORDER } from './profiles';
-import { edgeCost, effectiveEdgeWeights, scoreEdge } from './scoreEdge';
+import { edgeCost, effectiveEdgeWeights, scoreEdge, trafficVeto } from './scoreEdge';
 
 describe('effectiveEdgeWeights', () => {
   it('normalises to 1, drops route-level crossings, and adds lighting only after dark', () => {
@@ -54,9 +54,32 @@ describe('scoreEdge', () => {
   });
 });
 
+describe('traffic veto (busy streets must not score well)', () => {
+  const w = effectiveEdgeWeights(PROFILES.everyday, NOON);
+  it('leaves quiet streets alone and crushes arterials', () => {
+    expect(trafficVeto(1)).toBe(1);
+    expect(trafficVeto(0.7)).toBe(1);
+    expect(trafficVeto(0.3)).toBeLessThan(0.6);
+    expect(trafficVeto(0.1)).toBeLessThan(0.25);
+  });
+  it("Ricky's ideal street scores very high; a lit arterial with sidewalks scores very low", () => {
+    const ideal = makeFeatures({ nearGrassM: 30, gradePct: 1 });
+    const arterial = makeFeatures({
+      roadClass: 'primary', highway: 'primary', lanes: 4, sidewalk: 'both', lit: 'yes', distMajorRoadM: 0, gradePct: 1,
+    });
+    expect(scoreEdge(ideal, w, NOON).q).toBeGreaterThan(0.85);
+    expect(scoreEdge(arterial, w, NOON).q).toBeLessThan(0.15);
+  });
+  it('hills and a lack of green pull a quiet street down', () => {
+    const flatGreen = scoreEdge(makeFeatures({ nearGrassM: 30, gradePct: 1 }), w, NOON).q;
+    const steepBare = scoreEdge(makeFeatures({ roadClass: 'unclassified', gradePct: 10 }), w, NOON).q;
+    expect(flatGreen - steepBare).toBeGreaterThan(0.3);
+  });
+});
+
 describe('edgeCost', () => {
   it('is length for q=1, (1+α)×length for q=0, infinite when excluded', () => {
-    const base = { factors: {}, amenities: { score: 0, reason: '' } };
+    const base = { factors: {}, amenities: { score: 0, reason: '' }, veto: 1 };
     expect(edgeCost(100, { ...base, q: 1, excluded: null })).toBe(100);
     expect(edgeCost(100, { ...base, q: 0, excluded: null })).toBe(400);
     expect(edgeCost(100, { ...base, q: 0, excluded: 'x' })).toBe(Infinity);

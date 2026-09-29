@@ -11,7 +11,7 @@ import type {
   OverpassWay,
 } from '../types';
 import { makeProjection, polylineLengthXY, type Projection } from './geo';
-import { isGraphWay, isMajorRoad, roadClassOf } from './osmTags';
+import { isCrossingRoad, isGraphWay, roadClassOf } from './osmTags';
 
 /** Merged, de-duplicated OSM elements from one or more (tile) responses. */
 export interface OsmData {
@@ -197,7 +197,7 @@ function nodeCrossingFromTags(tags: OsmTags | undefined): CrossingKind | null {
 }
 
 /**
- * Tag crossings of major (secondary+) roads. A node on a major road where a
+ * Tag crossings of busy (tertiary+) roads. A node on a busy road where a
  * walkable non-major way joins is a crossing; its kind comes from the node's
  * own tags, else from traffic signals within 25 m (signals are often tagged
  * on a neighbouring node), else "unmarked".
@@ -216,7 +216,7 @@ function classifyCrossings(nodes: GraphNode[], edges: EdgeBase[]): void {
     for (const eid of n.edgeIds) {
       const e = edges[eid]!;
       ways.add(e.wayId);
-      if (isMajorRoad(roadClassOf(e.tags.highway ?? ''))) onMajor = true;
+      if (isCrossingRoad(roadClassOf(e.tags.highway ?? ''))) onMajor = true;
       else joinsOther = true;
     }
     if (!onMajor || (!joinsOther && ways.size < 2)) continue;

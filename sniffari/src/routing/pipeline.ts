@@ -3,6 +3,7 @@ import { buildGraph, mergeResponses } from '../graph/buildGraph';
 import { attachFeatures } from '../graph/edgeFeatures';
 import { effectiveEdgeWeights, scoreEdge } from '../scoring/scoreEdge';
 import type { EdgeDetail, HeatmapPayload, HeatmapStats } from './protocol';
+import type { ElevationAt } from '../data/elevation';
 
 export interface BuiltGraph extends Graph {
   msGraph: number;
@@ -15,13 +16,14 @@ export function buildScoredGraphInputs(
   center: LatLon,
   radiusM: number,
   onProgress?: (stage: 'graph' | 'features', done: number, total: number) => void,
+  elevationAt?: ElevationAt,
 ): BuiltGraph {
   const t0 = performance.now();
   const osm = mergeResponses(responses);
   const base = buildGraph(osm, center, { radiusM });
   onProgress?.('graph', 1, 1);
   const t1 = performance.now();
-  const edges = attachFeatures(base, osm, (d, t) => onProgress?.('features', d, t));
+  const edges = attachFeatures(base, osm, (d, t) => onProgress?.('features', d, t), elevationAt);
   const t2 = performance.now();
   return { nodes: base.nodes, edges, center, msGraph: t1 - t0, msFeatures: t2 - t1 };
 }

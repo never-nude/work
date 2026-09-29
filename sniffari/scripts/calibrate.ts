@@ -13,6 +13,7 @@ import { buildScoredGraphInputs } from '../src/routing/pipeline';
 import { effectiveEdgeWeights, scoreEdge } from '../src/scoring/scoreEdge';
 import { PROFILES } from '../src/scoring/profiles';
 import { haversineM } from '../src/graph/geo';
+import { loadFixtureElevation } from './elevationNode';
 
 interface Truth {
   street: string;
@@ -42,7 +43,9 @@ if (truth.length === 0) {
   process.exit(0);
 }
 
-const g = buildScoredGraphInputs([data], meta.center, meta.radiusM + 400);
+const elevationAt = loadFixtureElevation(fx);
+if (!elevationAt) console.warn('No elevation tiles for this fixture — terrain scores are neutral.');
+const g = buildScoredGraphInputs([data], meta.center, meta.radiusM + 400, undefined, elevationAt);
 
 function edgesFor(t: Truth): Edge[] {
   if (t.wayIds?.length) {
@@ -99,7 +102,7 @@ for (const t of truth) {
     continue;
   }
   const ctx = { hour: t.hour ?? 12, isDark: (t.hour ?? 12) >= 19 || (t.hour ?? 12) < 7 };
-  const w = effectiveEdgeWeights(PROFILES[t.profile ?? 'quiet'], ctx);
+  const w = effectiveEdgeWeights(PROFILES[t.profile ?? 'everyday'], ctx);
   let len = 0, sum = 0;
   for (const e of edges) {
     const s = scoreEdge(e.features, w, ctx);

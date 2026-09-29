@@ -51,6 +51,11 @@ export function EdgeInspector() {
       </header>
 
       {d.score.excluded && <p className="excluded">Not routed: {d.score.excluded}</p>}
+      {!d.score.excluded && d.score.veto < 0.99 && (
+        <p className="excluded">
+          Traffic penalty ×{d.score.veto.toFixed(2)}: busy streets can't score well, whatever else they have
+        </p>
+      )}
 
       <ul className="factors">
         {FACTOR_ORDER.map((k) => {

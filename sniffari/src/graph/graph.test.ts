@@ -28,7 +28,7 @@ const mid = (e: Edge) => {
   const [x1, y1] = proj.toXY(b[1], b[0]);
   return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
 };
-const q = (e: Edge) => scoreEdge(e.features, effectiveEdgeWeights(PROFILES.quiet, NOON), NOON);
+const q = (e: Edge) => scoreEdge(e.features, effectiveEdgeWeights(PROFILES.everyday, NOON), NOON);
 
 describe('buildGraph (synthetic fixture)', () => {
   it('splits ways at intersections', () => {
@@ -94,6 +94,18 @@ describe('edge features + scores (synthetic fixture)', () => {
     expect(q(main).q).toBeLessThan(q(oak).q);
     const elm = one('Elm Street', (e) => mid(e).x > 0);
     expect(elm.features.distRailM).toBeLessThan(200);
+  });
+  it('busy Main St scores low under the everyday profile', () => {
+    for (const e of byName('Main Street')) expect(q(e).q).toBeLessThan(0.2);
+  });
+  it('dog parks are neutral: Elm St west borders one but gets no grass credit', () => {
+    const elmWest = one('Elm Street', (e) => mid(e).x < 0 && mid(e).x > -300);
+    expect(elmWest.features.grassFraction).toBe(0);
+    expect(elmWest.features.nearDogParkM).toBeLessThan(20);
+  });
+  it('counts tertiary crossings (Broadway) as busy-road crossings', () => {
+    const onBroadway = base.nodes.filter((n) => n.crossing !== 'none' && Math.abs(proj.toXY(n.lat, n.lon)[0] + 300) < 1);
+    expect(onBroadway.length).toBeGreaterThanOrEqual(2);
   });
   it('woodland relation provides canopy', () => {
     const broadwaySouth = edges.filter((e) => e.name === 'Broadway').sort((a, b) => mid(a).y - mid(b).y)[0]!;

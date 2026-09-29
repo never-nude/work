@@ -2,6 +2,7 @@ import type { AmenityCounts, Edge, EdgeFeatures, LatLon, OsmTags } from '../type
 import type { BaseGraph, EdgeBase, OsmData } from './buildGraph';
 import { wayCoords } from './buildGraph';
 import { median, samplePolyline, type Projection } from './geo';
+import type { ElevationAt } from '../data/elevation';
 import {
   isMajorRoad,
   parseLanes,
@@ -21,6 +22,7 @@ export interface FeatureLayers {
   rail: SegmentIndex;
   grass: AreaIndex;
   canopy: AreaIndex;
+  dogParks: AreaIndex;
   trees: PointIndex<number>;
   commercial: PointIndex<number>;
   stations: PointIndex<number>;
@@ -37,7 +39,8 @@ function isGrass(t: OsmTags): boolean {
   if (t.access === 'private' || t.access === 'no') return false;
   return (
     ['grass', 'meadow', 'village_green', 'recreation_ground'].includes(t.landuse ?? '') ||
-    ['park', 'garden', 'dog_park', 'common'].includes(t.leisure ?? '') ||
+    // Dog parks are deliberately neutral (not counted as sniffable green) — Mike, 2026-09-29.
+    ['park', 'garden', 'common'].includes(t.leisure ?? '') ||
     ['grassland', 'scrub', 'heath'].includes(t.natural ?? '')
   );
 }
@@ -84,6 +87,7 @@ export function buildFeatureLayers(osm: OsmData, proj: Projection): FeatureLayer
   const rail = new SegmentIndex();
   const grass = new AreaIndex();
   const canopy = new AreaIndex();
+  const dogParks = new AreaIndex();
   const trees: { x: number; y: number; item: number }[] = [];
   const commercial: { x: number; y: number; item: number }[] = [];
   const stations: { x: number; y: number; item: number }[] = [];
@@ -110,7 +114,7 @@ export function buildFeatureLayers(osm: OsmData, proj: Projection): FeatureLayer
     const t = w.tags;
     if (!t) continue;
     const hw = t.highway;
-    const needsGeom = (hw && isMajorRoad(roadClassOf(hw))) || isRail(t) || isGrass(t) || isCanopy(t);
+    const needsGeom = (hw && isMajorRoad(roadClassOf(hw))) || isRail(t) || isGrass(t) || isCanopy(t) || t.leisure === 'dog_park';
     if (needsGeom) {
       const coords = wayCoords(w, osm.nodes);
       if (coords.length >= 2) {
@@ -119,6 +123,7 @@ export function buildFeatureLayers(osm: OsmData, proj: Projection): FeatureLayer
         if (isRail(t)) rail.addLine(pts, w.id);
         if (isGrass(t)) grass.add(pts, isClosed(coords));
         if (isCanopy(t)) canopy.add(pts, isClosed(coords) && t.natural !== 'tree_row');
+        if (t.leisure === 'dog_park') dogParks.add(pts, isClosed(coords));
       }
     }
     // Shops, cafés, stations mapped as buildings/areas arrive with `out center`.
@@ -148,6 +153,7 @@ export function buildFeatureLayers(osm: OsmData, proj: Projection): FeatureLayer
     rail: rail.finish(),
     grass: grass.finish(),
     canopy: canopy.finish(),
+    dogParks: dogParks.finish(),
     trees: new PointIndex(trees),
     commercial: new PointIndex(commercial),
     stations: new PointIndex(stations),
@@ -162,7 +168,46 @@ function uniqueWithin<T>(index: PointIndex<T>, samples: [number, number][], r: n
   return out;
 }
 
-export function computeEdgeFeatures(edge: EdgeBase, layers: FeatureLayers, proj: Projection): EdgeFeatures {
+const TERRAIN_SPACING_M = 20;
+
+/**
+ * Mean absolute grade and climb along an edge, sampled every 20 m (the DEM is
+ * ~7–10 m/pixel; finer sampling mostly measures noise). Bridges and tunnels
+ * are skipped — the DEM sees the ground under them, not the deck.
+ */
+export function terrainOf(
+  edge: EdgeBase,
+  xy: [number, number][],
+  proj: Projection,
+  elevationAt?: ElevationAt,
+): { gradePct: number | null; climbPer100m: number | null } {
+  const none = { gradePct: null, climbPer100m: null };
+  if (!elevationAt || edge.tags.bridge === 'yes' || edge.tags.tunnel === 'yes' || edge.lengthM < 5) return none;
+  const pts = samplePolyline(xy, TERRAIN_SPACING_M);
+  const h: number[] = [];
+  for (const [x, y] of pts) {
+    const v = elevationAt(proj.toLatLon(x, y));
+    if (v === null || !Number.isFinite(v)) return none;
+    h.push(v);
+  }
+  let abs = 0;
+  let climb = 0;
+  for (let i = 1; i < h.length; i++) {
+    const d = h[i]! - h[i - 1]!;
+    abs += Math.abs(d);
+    if (d > 0) climb += d;
+  }
+  // Direction-neutral climb: a walk may go either way along the edge.
+  const up = Math.max(climb, abs - climb);
+  return { gradePct: (abs / edge.lengthM) * 100, climbPer100m: (up / edge.lengthM) * 100 };
+}
+
+export function computeEdgeFeatures(
+  edge: EdgeBase,
+  layers: FeatureLayers,
+  proj: Projection,
+  elevationAt?: ElevationAt,
+): EdgeFeatures {
   const t = edge.tags;
   const highway = t.highway ?? '';
   const rc = roadClassOf(highway);
@@ -179,11 +224,16 @@ export function computeEdgeFeatures(edge: EdgeBase, layers: FeatureLayers, proj:
   let grassHits = 0;
   let nearGrassM = Infinity;
   let canopyHits = 0;
+  let dogParkHits = 0;
+  let nearDogParkM = Infinity;
   for (const [x, y] of samples) {
     const g = layers.grass.distance(x, y, 400);
     if (g <= 20) grassHits++;
     if (g < nearGrassM) nearGrassM = g;
     if (layers.canopy.distance(x, y, 10) <= 10) canopyHits++;
+    const dp = layers.dogParks.distance(x, y, 400);
+    if (dp <= 20) dogParkHits++;
+    if (dp < nearDogParkM) nearDogParkM = dp;
   }
 
   const trees = uniqueWithin(layers.trees, samples, 15).size;
@@ -206,12 +256,16 @@ export function computeEdgeFeatures(edge: EdgeBase, layers: FeatureLayers, proj:
     access: t.access ?? null,
     dog: t.dog ?? null,
     construction: rc === 'construction' || t.construction !== undefined,
+    lengthM: edge.lengthM,
+    ...terrainOf(edge, xy, proj, elevationAt),
     surface: parseSurface(t, rc),
     lit: parseLit(t.lit),
     distMajorRoadM,
     distRailM,
     grassFraction: samples.length ? grassHits / samples.length : 0,
     nearGrassM: cap(nearGrassM),
+    dogParkFraction: samples.length ? dogParkHits / samples.length : 0,
+    nearDogParkM: cap(nearDogParkM),
     treesPer100m: trees / per100,
     canopyFraction: samples.length ? canopyHits / samples.length : 0,
     commercialPer100m: commercial / per100,
@@ -221,13 +275,18 @@ export function computeEdgeFeatures(edge: EdgeBase, layers: FeatureLayers, proj:
   };
 }
 
-export function attachFeatures(base: BaseGraph, osm: OsmData, onProgress?: (done: number, total: number) => void): Edge[] {
+export function attachFeatures(
+  base: BaseGraph,
+  osm: OsmData,
+  onProgress?: (done: number, total: number) => void,
+  elevationAt?: ElevationAt,
+): Edge[] {
   const layers = buildFeatureLayers(osm, base.projection);
   const out: Edge[] = [];
   const total = base.edges.length;
   for (let i = 0; i < total; i++) {
     const e = base.edges[i]!;
-    out.push({ ...e, features: computeEdgeFeatures(e, layers, base.projection) });
+    out.push({ ...e, features: computeEdgeFeatures(e, layers, base.projection, elevationAt) });
     if (onProgress && i % 500 === 0) onProgress(i, total);
   }
   onProgress?.(total, total);

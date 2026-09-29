@@ -59,3 +59,8 @@ Open issues / blockers:
 - Model decisions awaiting Mike: see PLAN.md §6.
 Next step: locally, `cd sniffari && npm install && npm run fixture:fetch && npm run dev`, open `/?fixture=white-plains`, review the heatmap, answer PLAN.md §6, start filling `fixtures/ground-truth.json`. Phase 2 (loop routing) waits for go-ahead.
 Delivery: pushed to the feature branch; not merged; not deployed.
+
+### 2026-09-29 (later) — scoring changes from Mike's review
+Completed: traffic veto (busy streets score low), terrain factor from Terrarium elevation tiles (worker fetch+cache, saved by `fixture:fetch`, decoded in `calibrate`), separately-mapped sidewalks rule, tertiary crossings, dog parks neutral with an opt-in toggle, grass rewards nearby green, new default "Everyday" profile. SPEC.md/PLAN.md updated with the decisions.
+Validation: 94 tests passing, typecheck + build pass, synthetic fixture re-screenshotted (Main St now red). Elevation tiles (s3.amazonaws.com) not reachable from this environment — terrain verified only with synthetic slopes.
+Next step: unchanged — run `npm run fixture:fetch` locally and review White Plains.

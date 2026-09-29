@@ -15,11 +15,11 @@ export const TIME_PRESETS: Record<TimePreset, { label: string; hour?: number; da
 };
 
 /** Phase 4 replaces this with Open-Meteo sunrise/sunset. */
-function contextFor(preset: TimePreset, now = new Date()): ScoringContext {
+function contextFor(preset: TimePreset, dogParks: boolean, now = new Date()): ScoringContext {
   const p = TIME_PRESETS[preset];
   const hour = p.hour ?? now.getHours();
   const isDark = p.dark ?? (hour < 7 || hour >= 19);
-  return { hour, isDark };
+  return { hour, isDark, dogParks };
 }
 
 export interface Place extends LatLon {
@@ -39,6 +39,7 @@ interface State {
   source: DataSource;
   profileId: ProfileId;
   timePreset: TimePreset;
+  dogParks: boolean;
 
   status: 'idle' | 'loading' | 'ready' | 'error';
   progress: Progress | null;
@@ -53,6 +54,7 @@ interface State {
   setSource(s: DataSource): void;
   setProfile(id: ProfileId): void;
   setTime(t: TimePreset): void;
+  setDogParks(on: boolean): void;
   load(): void;
   inspect(edgeId: number | null): void;
   setSheetOpen(open: boolean): void;
@@ -95,13 +97,14 @@ export const useStore = create<State>((set, get) => {
   const rescore = () => {
     const s = get();
     if (!s.heatmap) return;
-    worker.send({ type: 'rescore', profileId: s.profileId, ctx: contextFor(s.timePreset) });
+    worker.send({ type: 'rescore', profileId: s.profileId, ctx: contextFor(s.timePreset, s.dogParks) });
   };
 
   return {
     ...initialFromUrl(),
-    profileId: 'quiet',
+    profileId: 'everyday',
     timePreset: 'now',
+    dogParks: false,
     status: 'idle',
     progress: null,
     error: null,
@@ -127,6 +130,10 @@ export const useStore = create<State>((set, get) => {
       set({ timePreset });
       rescore();
     },
+    setDogParks: (dogParks) => {
+      set({ dogParks });
+      rescore();
+    },
     load: () => {
       const s = get();
       set({ status: 'loading', error: null, selected: null, selectedId: null, progress: null });
@@ -136,7 +143,7 @@ export const useStore = create<State>((set, get) => {
         radiusM: s.radiusM,
         source: s.source,
         profileId: s.profileId,
-        ctx: contextFor(s.timePreset),
+        ctx: contextFor(s.timePreset, s.dogParks),
       });
     },
     inspect: (edgeId) => {

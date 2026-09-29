@@ -132,6 +132,15 @@ export function ControlSheet() {
           ))}
         </div>
         <p className="hint">{PROFILES[s.profileId].blurb}</p>
+        <div className="chips">
+          <button
+            className={`chip${s.dogParks ? ' chip--on' : ''}`}
+            aria-pressed={s.dogParks}
+            onClick={() => s.setDogParks(!s.dogParks)}
+          >
+            {s.dogParks ? '✓ ' : ''}Count dog parks as green
+          </button>
+        </div>
       </div>
 
       <div className="field">

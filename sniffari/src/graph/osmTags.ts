@@ -64,6 +64,11 @@ export function isMajorRoad(rc: RoadClass): boolean {
   return MAJOR.has(rc);
 }
 
+/** Roads whose crossings count as risky for a walker: secondary+ plus tertiary. */
+export function isCrossingRoad(rc: RoadClass): boolean {
+  return MAJOR.has(rc) || rc === 'tertiary';
+}
+
 const DEDICATED: ReadonlySet<RoadClass> = new Set(['footway', 'pedestrian', 'path', 'steps', 'living_street']);
 
 function sideValue(v: string | undefined): 'yes' | 'no' | 'separate' | null {

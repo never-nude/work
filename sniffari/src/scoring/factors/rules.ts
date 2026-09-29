@@ -1,6 +1,9 @@
 import type { EdgeFeatures } from '../../types';
 import { isMajorRoad } from '../../graph/osmTags';
 
+/** Longest stretch of a separately-sidewalked busy road kept as a crossing connector. */
+export const SEPARATE_CONNECTOR_M = 30;
+
 const FOOT_OK = new Set(['yes', 'designated', 'permissive', 'official']);
 
 /**
@@ -15,5 +18,10 @@ export function exclusionReason(f: EdgeFeatures): string | null {
   if ((f.access === 'private' || f.access === 'no') && !FOOT_OK.has(f.foot ?? '')) return 'Private — no access';
   if (f.service === 'driveway' || f.service === 'drive-through') return 'Driveway';
   if (isMajorRoad(f.roadClass) && f.sidewalk === 'none') return 'Busy road with no sidewalk';
+  // Sidewalks exist as their own footways — walk those, not the roadway. Short
+  // pieces stay routable so the graph keeps its crossings at intersections.
+  if (isMajorRoad(f.roadClass) && f.sidewalk === 'separate' && f.lengthM > SEPARATE_CONNECTOR_M) {
+    return 'Sidewalks mapped separately — walk those';
+  }
   return null;
 }

@@ -2,6 +2,13 @@
 import type { LatLon, OverpassResponse, ScoringContext } from '../types';
 import { bboxAround, buildQuery, fetchOverpass, QUERY_VERSION, tilesForBBox } from '../data/overpass';
 import { TTLCache } from '../data/cache';
+import {
+  fetchTerrariumTile,
+  makeElevationLookup,
+  tilesForElevation,
+  type DecodedTile,
+  type ElevationAt,
+} from '../data/elevation';
 import { PROFILES } from '../scoring/profiles';
 import type { ProfileId } from '../types';
 import { buildScoredGraphInputs, edgeDetail, scoreAll, toHeatmap, type BuiltGraph } from './pipeline';
@@ -10,6 +17,8 @@ import type { DataSource, Stage, WorkerRequest, WorkerResponse } from './protoco
 declare const self: DedicatedWorkerGlobalScope;
 
 const fixtureLoaders = import.meta.glob<OverpassResponse>('../../fixtures/*.overpass.json', { import: 'default' });
+/** Terrain PNGs saved by `npm run fixture:fetch`: fixtures/<name>.elevation/<z>-<x>-<y>.png */
+const fixtureElevation = import.meta.glob<string>('../../fixtures/*.elevation/*.png', { query: '?url', import: 'default' });
 
 const cache = new TTLCache();
 /** Extra data beyond the walk radius so features (grass, major roads) near the edge are seen. */
@@ -17,9 +26,10 @@ const MARGIN_M = 400;
 const MAX_PARALLEL = 2; // Overpass allows ~2 concurrent slots per IP
 
 let graph: BuiltGraph | null = null;
-let current = { profileId: 'quiet' as ProfileId, ctx: { hour: 12, isDark: false } as ScoringContext };
+let current = { profileId: 'everyday' as ProfileId, ctx: { hour: 12, isDark: false } as ScoringContext };
 let fetchMs = 0;
 let tileStats = { total: 0, cached: 0 };
+let elevationTiles = 0;
 
 const post = (msg: WorkerResponse) => self.postMessage(msg);
 
@@ -63,12 +73,38 @@ async function loadResponses(
   return out;
 }
 
+/** Elevation is best-effort: any failure leaves terrain "unavailable" instead of failing the load. */
+async function loadElevation(center: LatLon, radiusM: number, source: DataSource): Promise<ElevationAt | undefined> {
+  const tiles: DecodedTile[] = [];
+  try {
+    if (source.kind === 'fixture') {
+      const prefix = `../../fixtures/${source.name}.elevation/`;
+      for (const [path, load] of Object.entries(fixtureElevation)) {
+        if (!path.startsWith(prefix)) continue;
+        const [z, x, y] = path.slice(prefix.length, -4).split('-').map(Number) as [number, number, number];
+        tiles.push(await fetchTerrariumTile(z, x, y, undefined, await load()));
+      }
+    } else {
+      for (const t of tilesForElevation(bboxAround(center, radiusM + MARGIN_M))) {
+        const { value } = await cache.getOrFetch(`terrarium:${t.z}/${t.x}/${t.y}`, () => fetchTerrariumTile(t.z, t.x, t.y));
+        tiles.push(value);
+      }
+    }
+  } catch (e) {
+    console.warn('Elevation unavailable:', e);
+    tiles.length = 0;
+  }
+  elevationTiles = tiles.length;
+  return tiles.length ? makeElevationLookup(tiles) : undefined;
+}
+
 function emitHeatmap(requestId: number, msScore: number) {
   if (!graph) return;
   const t0 = performance.now();
   const scores = scoreAll(graph.edges, PROFILES[current.profileId], current.ctx);
   const payload = toHeatmap(graph, scores, {
     tiles: tileStats,
+    elevationTiles,
     ms: { fetch: fetchMs, graph: graph.msGraph, features: graph.msFeatures, score: msScore || performance.now() - t0 },
   });
   post({ type: 'heatmap', requestId, payload });
@@ -81,6 +117,8 @@ self.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
       current = { profileId: req.profileId, ctx: req.ctx };
       const t0 = performance.now();
       const responses = await loadResponses(req.requestId, req.center, req.radiusM, req.source);
+      post({ type: 'progress', requestId: req.requestId, stage: 'fetch', done: 1, total: 1, message: 'Loading elevation…' });
+      const elevationAt = await loadElevation(req.center, req.radiusM, req.source);
       fetchMs = performance.now() - t0;
       const stageMsg: Record<Stage, string> = {
         fetch: '',
@@ -90,6 +128,7 @@ self.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
       };
       graph = buildScoredGraphInputs(responses, req.center, req.radiusM, (stage, done, total) =>
         post({ type: 'progress', requestId: req.requestId, stage, done, total, message: stageMsg[stage] }),
+        elevationAt,
       );
       post({ type: 'progress', requestId: req.requestId, stage: 'score', done: 0, total: 1, message: stageMsg.score });
       emitHeatmap(req.requestId, 0);
