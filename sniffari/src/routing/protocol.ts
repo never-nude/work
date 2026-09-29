@@ -1,4 +1,5 @@
-import type { EdgeFactorKey, EdgeFeatures, EdgeScore, LatLon, OsmTags, ProfileId, ScoringContext } from '../types';
+import type { EdgeFactorKey, EdgeFeatures, EdgeScore, LatLon, OsmTags, ProfileId, Route, ScoringContext } from '../types';
+import type { PlanRequest } from './loopGenerator';
 
 export type DataSource = { kind: 'live' } | { kind: 'fixture'; name: string };
 
@@ -13,9 +14,10 @@ export type WorkerRequest =
       ctx: ScoringContext;
     }
   | { type: 'rescore'; requestId: number; profileId: ProfileId; ctx: ScoringContext }
-  | { type: 'inspect'; requestId: number; edgeId: number };
+  | { type: 'inspect'; requestId: number; edgeId: number }
+  | { type: 'plan'; requestId: number; plan: PlanRequest };
 
-export type Stage = 'fetch' | 'graph' | 'features' | 'score';
+export type Stage = 'fetch' | 'graph' | 'features' | 'score' | 'route';
 
 export interface HeatmapStats {
   nodes: number;
@@ -65,4 +67,5 @@ export type WorkerResponse =
   | { type: 'progress'; requestId: number; stage: Stage; done: number; total: number; message: string }
   | { type: 'heatmap'; requestId: number; payload: HeatmapPayload }
   | { type: 'detail'; requestId: number; detail: EdgeDetail }
+  | { type: 'routes'; requestId: number; routes: Route[]; candidates: number; message?: string }
   | { type: 'error'; requestId: number; message: string };

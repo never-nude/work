@@ -64,3 +64,8 @@ Delivery: pushed to the feature branch; not merged; not deployed.
 Completed: traffic veto (busy streets score low), terrain factor from Terrarium elevation tiles (worker fetch+cache, saved by `fixture:fetch`, decoded in `calibrate`), separately-mapped sidewalks rule, tertiary crossings, dog parks neutral with an opt-in toggle, grass rewards nearby green, new default "Everyday" profile. SPEC.md/PLAN.md updated with the decisions.
 Validation: 94 tests passing, typecheck + build pass, synthetic fixture re-screenshotted (Main St now red). Elevation tiles (s3.amazonaws.com) not reachable from this environment — terrain verified only with synthetic slopes.
 Next step: unchanged — run `npm run fixture:fetch` locally and review White Plains.
+
+### 2026-09-29 (later) — "Optimize route in view"
+Completed: A* router with busy-crossing node costs (only when going across a busy road), loop generator (16 bearings × 3 radii, two-waypoint triangles, reuse penalty, spur trimming, top-3 with <40% overlap), one-way "somewhere else" with alternatives, route scoring (length-weighted q, crossings blend, retrace/fit penalties, amenity bonus, why line, warnings), worker `plan` message, UI: floating Optimize button, walk length/pace/finish panel, end-point picking, route cards with breakdowns, routes drawn over a dimmed heatmap.
+Validation: 103 tests passing; typecheck + build; both flows driven in headless Chromium on the synthetic fixture (loop and somewhere-else).
+Open: not tried on real White Plains data (network-blocked here); GPS start untested in headless (falls back to the pin); POIs along routes not yet listed.

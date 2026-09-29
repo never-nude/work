@@ -44,6 +44,7 @@ function addOverlay(map: MLMap) {
   map.addSource('radius', { type: 'geojson', data: EMPTY });
   map.addSource('edges', { type: 'geojson', data: EMPTY, promoteId: 'id' });
   map.addSource('crossings', { type: 'geojson', data: EMPTY });
+  map.addSource('routes', { type: 'geojson', data: EMPTY });
 
   map.addLayer({
     id: 'radius',
@@ -76,6 +77,30 @@ function addOverlay(map: MLMap) {
     paint: { 'line-color': heatExpr, 'line-width': widthExpr },
   });
   map.addLayer({
+    id: 'routes-alt',
+    type: 'line',
+    source: 'routes',
+    filter: ['!=', ['get', 'selected'], true],
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#fdf6e9', 'line-opacity': 0.55, 'line-width': widthAt(1.1, 2), 'line-dasharray': [1.5, 1.2] },
+  });
+  map.addLayer({
+    id: 'routes-casing',
+    type: 'line',
+    source: 'routes',
+    filter: ['==', ['get', 'selected'], true],
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#16131c', 'line-width': widthAt(1.6, 8) },
+  });
+  map.addLayer({
+    id: 'routes-selected',
+    type: 'line',
+    source: 'routes',
+    filter: ['==', ['get', 'selected'], true],
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#ae83fa', 'line-width': widthAt(1.3, 4) },
+  });
+  map.addLayer({
     id: 'crossings',
     type: 'circle',
     source: 'crossings',
@@ -105,6 +130,10 @@ export function MapView() {
   const radiusM = useStore((s) => s.radiusM);
   const heatmap = useStore((s) => s.heatmap);
   const selectedId = useStore((s) => s.selectedId);
+  const routes = useStore((s) => s.routes);
+  const routeIndex = useStore((s) => s.routeIndex);
+  const endPoint = useStore((s) => s.endPoint);
+  const endMarkerRef = useRef<Marker | null>(null);
   const selected = useStore((s) => s.selected);
 
   // Create the map once.
@@ -121,6 +150,12 @@ export function MapView() {
     });
     mapRef.current = map;
     map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+    useStore.setState({
+      getViewBounds: () => {
+        const b = map.getBounds();
+        return [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
+      },
+    });
 
     const fallback = () => {
       styleIdx++;
@@ -141,6 +176,22 @@ export function MapView() {
 
     // One generous hit box instead of per-layer handlers: thin lines are hard to tap one-handed.
     map.on('click', (e) => {
+      const st = useStore.getState();
+      if (st.pickingEnd) {
+        st.setEndPoint({ lat: e.lngLat.lat, lon: e.lngLat.lng, label: 'Chosen end point' });
+        return;
+      }
+      const box: [[number, number], [number, number]] = [
+        [e.point.x - 12, e.point.y - 12],
+        [e.point.x + 12, e.point.y + 12],
+      ];
+      if (st.routes.length && map.getLayer('routes-alt')) {
+        const hit = map.queryRenderedFeatures(box, { layers: ['routes-selected', 'routes-alt'] })[0];
+        if (hit) {
+          st.selectRoute(Number(hit.properties.index));
+          return;
+        }
+      }
       const layers = ['edges', 'edges-excluded'].filter((l) => map.getLayer(l));
       const hits = map.queryRenderedFeatures(
         [
@@ -159,6 +210,8 @@ export function MapView() {
     return () => {
       map.remove();
       mapRef.current = null;
+      endMarkerRef.current = null;
+      useStore.setState({ getViewBounds: null });
       markerRef.current = null; // StrictMode remounts: don't keep a marker bound to the removed map
     };
   }, []);
@@ -169,12 +222,59 @@ export function MapView() {
     (map.getSource('crossings') as GeoJSONSource | undefined)?.setData(s.heatmap?.crossings ?? EMPTY);
     (map.getSource('radius') as GeoJSONSource | undefined)?.setData(radiusCircle(s.start.lat, s.start.lon, s.radiusM));
     if (map.getLayer('edges-selected')) map.setFilter('edges-selected', ['==', ['get', 'id'], s.selectedId ?? -2]);
+    (map.getSource('routes') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: s.routes.map((r, i) => ({
+        type: 'Feature',
+        properties: { index: i, selected: i === s.routeIndex },
+        geometry: { type: 'LineString', coordinates: r.coords },
+      })),
+    });
+    // Heatmap steps back while routes are shown.
+    const dim = s.routes.length > 0;
+    if (map.getLayer('edges')) map.setPaintProperty('edges', 'line-opacity', dim ? 0.3 : 1);
+    if (map.getLayer('edges-excluded')) map.setPaintProperty('edges-excluded', 'line-opacity', dim ? 0.25 : 1);
+    if (map.getLayer('crossings')) map.setPaintProperty('crossings', 'circle-opacity', dim ? 0.5 : 1);
   }
 
   useEffect(() => {
     const map = mapRef.current;
     if (map?.isStyleLoaded()) syncData(map);
-  }, [heatmap, radiusM, start, selectedId]);
+  }, [heatmap, radiusM, start, selectedId, routes, routeIndex]);
+
+  // Frame the selected route (leave room for the sheet on phones / panel on desktop).
+  useEffect(() => {
+    const map = mapRef.current;
+    const r = routes[routeIndex];
+    if (!map || !r) return;
+    let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
+    for (const [lon, lat] of r.coords) {
+      w = Math.min(w, lon); e = Math.max(e, lon); s = Math.min(s, lat); n = Math.max(n, lat);
+    }
+    const { clientWidth: cw, clientHeight: ch } = map.getContainer();
+    const phone = cw < 820;
+    map.fitBounds([[w, s], [e, n]], {
+      padding: phone ? { top: 90, bottom: ch * 0.5, left: 30, right: 30 } : { top: 90, bottom: 40, left: 40, right: 440 },
+      duration: 600,
+      maxZoom: 17,
+    });
+  }, [routes, routeIndex]);
+
+  // End-point marker for "somewhere else" walks.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!endPoint) {
+      endMarkerRef.current?.remove();
+      endMarkerRef.current = null;
+      return;
+    }
+    if (!endMarkerRef.current) {
+      const el = document.createElement('div');
+      el.className = 'end-marker';
+      endMarkerRef.current = new Marker({ element: el, anchor: 'bottom' }).setLngLat([endPoint.lon, endPoint.lat]).addTo(map);
+    } else endMarkerRef.current.setLngLat([endPoint.lon, endPoint.lat]);
+  }, [endPoint]);
 
   // Keep the inspected street visible above the bottom sheet (phone) or left of the side panel (desktop).
   useEffect(() => {
@@ -199,7 +299,7 @@ export function MapView() {
     } else {
       markerRef.current.setLngLat([start.lon, start.lat]);
     }
-    map.easeTo({ center: [start.lon, start.lat], duration: 600 });
+    if (!useStore.getState().routes.length) map.easeTo({ center: [start.lon, start.lat], duration: 600 });
   }, [start]);
 
   return <div ref={container} className="map" />;

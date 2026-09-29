@@ -13,6 +13,8 @@ import { PROFILES } from '../scoring/profiles';
 import type { ProfileId } from '../types';
 import { buildScoredGraphInputs, edgeDetail, scoreAll, toHeatmap, type BuiltGraph } from './pipeline';
 import type { DataSource, Stage, WorkerRequest, WorkerResponse } from './protocol';
+import { Planner } from './loopGenerator';
+import type { EdgeScore } from '../types';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -30,6 +32,7 @@ let current = { profileId: 'everyday' as ProfileId, ctx: { hour: 12, isDark: fal
 let fetchMs = 0;
 let tileStats = { total: 0, cached: 0 };
 let elevationTiles = 0;
+let scores: EdgeScore[] = [];
 
 const post = (msg: WorkerResponse) => self.postMessage(msg);
 
@@ -101,7 +104,7 @@ async function loadElevation(center: LatLon, radiusM: number, source: DataSource
 function emitHeatmap(requestId: number, msScore: number) {
   if (!graph) return;
   const t0 = performance.now();
-  const scores = scoreAll(graph.edges, PROFILES[current.profileId], current.ctx);
+  scores = scoreAll(graph.edges, PROFILES[current.profileId], current.ctx);
   const payload = toHeatmap(graph, scores, {
     tiles: tileStats,
     elevationTiles,
@@ -125,6 +128,7 @@ self.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
         graph: 'Building street graph…',
         features: 'Measuring grass, trees, traffic…',
         score: 'Scoring streets…',
+        route: '',
       };
       graph = buildScoredGraphInputs(responses, req.center, req.radiusM, (stage, done, total) =>
         post({ type: 'progress', requestId: req.requestId, stage, done, total, message: stageMsg[stage] }),
@@ -135,6 +139,15 @@ self.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
     } else if (req.type === 'rescore') {
       current = { profileId: req.profileId, ctx: req.ctx };
       emitHeatmap(req.requestId, 0);
+    } else if (req.type === 'plan') {
+      if (!graph || !scores.length) throw new Error('Load streets first');
+      const planner = new Planner(graph, scores, PROFILES[current.profileId], current.ctx);
+      const t0 = performance.now();
+      const res = planner.plan(req.plan, (done, total) => {
+        if (done % 8 === 0) post({ type: 'progress', requestId: req.requestId, stage: 'route', done, total, message: 'Trying loop shapes…' });
+      });
+      console.debug(`planned ${res.candidates} candidates in ${Math.round(performance.now() - t0)} ms`);
+      post({ type: 'routes', requestId: req.requestId, ...res });
     } else if (req.type === 'inspect') {
       if (!graph) throw new Error('No graph loaded');
       const detail = edgeDetail(graph, req.edgeId, PROFILES[current.profileId], current.ctx);

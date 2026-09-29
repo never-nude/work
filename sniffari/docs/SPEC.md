@@ -84,6 +84,13 @@ Amenities are additive bonuses, not weighted factors. Weather modifies weights a
 4. **Destinations:** (dog parks get no special bonus — neutral) find candidate destinations within reach, route to each, rank by destination quality × route quality × fit. Out-and-back may return on a different path if it scores better.
 5. All of steps 2–4 run in a Web Worker; UI shows progress.
 
+### Optimize route in view (Mike, 2026-09-29)
+The main entry point: the walker frames an area on the map and taps **Optimize route**. Routing starts at their GPS position (start pin if location is unavailable) and only uses streets inside the view.
+- **Back to start** (default): best loops for the chosen walk length (minutes × pace), per step 3.
+- **Somewhere else**: the walker taps an end point; best path there plus up to two alternatives (earlier best paths penalised ×1.6 per round).
+- Busy-road crossings are charged in A\* as a node cost (`CROSSING_PENALTY × 150 m`, scaled by the profile's crossings weight), counted only when the walker goes *across* the road, not along it.
+- Views larger than a 3 km radius ask the user to zoom in.
+
 ## 8. Calibration
 
 Mike will walk streets around the test fixture and record ground truth in `fixtures/ground-truth.json`:

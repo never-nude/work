@@ -633,3 +633,260 @@ select.input {
     bottom: calc(132px + var(--safe-b));
   }
 }
+
+/* ------------------------------------------------------------ walk planning */
+
+.walk,
+.routes {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+}
+
+.segmented button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  color: var(--text-2);
+}
+
+.segmented button.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.hint--notice {
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.fab {
+  position: absolute;
+  right: 16px;
+  bottom: calc(148px + var(--safe-b));
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 0 22px 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 17px;
+  font-weight: 800;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), 0 0 0 4px rgba(174, 131, 250, 0.25);
+  cursor: pointer;
+}
+
+.fab:disabled {
+  opacity: 0.7;
+}
+
+@media (max-width: 819px) {
+  /* With routes on screen the sheet stops at half height so the route stays visible. */
+  .sheet--half {
+    max-height: 48vh;
+  }
+  .fab--sheet-open {
+    display: none;
+  }
+}
+
+@media (min-width: 820px) {
+  .fab {
+    right: 424px;
+    bottom: 28px;
+  }
+}
+
+.banner {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(24px + var(--safe-b));
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px 12px 18px;
+  border-radius: 18px;
+  background: var(--ink);
+  border: 1px solid var(--accent);
+  font-weight: 700;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+@media (min-width: 820px) {
+  .banner {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+}
+
+.end-marker {
+  width: 26px;
+  height: 34px;
+  background: var(--text);
+  clip-path: path('M13 34 C13 34 0 20 0 13 A13 13 0 1 1 26 13 C26 20 13 34 13 34 Z');
+  position: relative;
+}
+
+.end-marker::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.routes__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.routes__head h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.routes__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.route {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--ink-2);
+  cursor: pointer;
+}
+
+.route--on {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.route__top {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.route__rank {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  font-weight: 800;
+  font-size: 15px;
+  align-self: center;
+}
+
+.route--on .route__rank {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.route__score {
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.route__meta {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.route__why {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-2);
+}
+
+.route__warn {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  color: #ffc2cd;
+}
+
+.route__bars {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.route__bars li {
+  display: grid;
+  grid-template-columns: 120px 1fr 32px;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.route__val {
+  text-align: right;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.more {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.more summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--text-2);
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+
+.more__body {
+  padding-top: 12px;
+}

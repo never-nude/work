@@ -4,7 +4,7 @@ Best dog-walking routes from where you're standing. Every street segment is scor
 dog walk good or bad — sidewalks, quiet, grass, shade, crossings, crowds, surface, lighting,
 amenities, rules — from OpenStreetMap, entirely in the browser.
 
-Status: **Phase 1** (data + graph + street-quality heatmap). See `docs/SPEC.md` for the product,
+Status: **Phase 1** (street-quality heatmap) plus **route optimization in the map view**. See `docs/SPEC.md` for the product,
 `docs/PLAN.md` for architecture and open questions, `CLAUDE.md` for working rules.
 
 ## Run it
@@ -17,6 +17,7 @@ npm run dev                      # http://localhost:5173
 
 - `http://localhost:5173/?fixture=synthetic` — offline test grid, loads instantly.
 - `http://localhost:5173/` — live OpenStreetMap around the White Plains fixture; press **Score streets**.
+- Frame an area, tap **Optimize route**: best loops back to you (or tap **Somewhere else** and pick a finish), each with a score, time, a one-line why, and warnings.
 - Tap any street for its score, per-factor breakdown with reasons, raw OSM tags, and a
   **Copy ground-truth stub** button for calibration.
 - **Dog** and **When** chips re-score instantly without refetching.

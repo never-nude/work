@@ -103,6 +103,8 @@ paste it back so we can tune.
 - **Dog parks neutral** by default; a "Count dog parks as green" preference opts in. No destination bonus in Phase 3.
 - **Everyday profile** is the default: quiet residential streets with sidewalks, green nearby for potty stops, flat, safe crossings.
 
+- **Optimize route in view** (Phase 2 routing, pulled forward at Mike's request): `routing/astar.ts`, `routing/loopGenerator.ts` (`Planner`), `scoring/scoreRoute.ts`; worker `plan` → `routes` messages; floating button + walk/finish panel + route cards in the UI.
+
 ### Original list
 
 **Model**

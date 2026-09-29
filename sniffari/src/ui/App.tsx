@@ -9,6 +9,10 @@ export function App() {
   const setSheetOpen = useStore((s) => s.setSheetOpen);
   const selected = useStore((s) => s.selected);
   const load = useStore((s) => s.load);
+  const pickingEnd = useStore((s) => s.pickingEnd);
+  const planning = useStore((s) => s.planning);
+  const routes = useStore((s) => s.routes);
+  const optimize = useStore((s) => s.optimize);
 
   // Fixture URLs (?fixture=…) load straight away — handy for calibration and screenshots.
   useEffect(() => {
@@ -23,9 +27,27 @@ export function App() {
           <BrandIcon />
           Sniffari
         </span>
-        <span className="topbar__tag">street quality · debug</span>
+        <span className="topbar__tag">dog walks</span>
       </header>
-      <aside className={`sheet${sheetOpen ? ' sheet--open' : ''}${selected ? ' sheet--hidden' : ''}`}>
+      {pickingEnd && (
+        <div className="banner" role="status">
+          <span>Tap the map where you want to finish</span>
+          <button className="btn" onClick={() => useStore.setState({ pickingEnd: false, sheetOpen: true, planMessage: null })}>
+            Cancel
+          </button>
+        </div>
+      )}
+      {!selected && !pickingEnd && routes.length === 0 && (
+        <button className={`fab${sheetOpen ? ' fab--sheet-open' : ''}`} disabled={planning} onClick={() => void optimize()}>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+            <path d="M5 19c3-1 3-6 7-7s4-6 7-7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+            <circle cx="5" cy="19" r="2.4" fill="currentColor" />
+            <circle cx="19" cy="5" r="2.4" fill="currentColor" />
+          </svg>
+          {planning ? 'Planning…' : 'Optimize route'}
+        </button>
+      )}
+      <aside className={`sheet${sheetOpen ? ' sheet--open' : ''}${routes.length ? ' sheet--half' : ''}${selected || pickingEnd ? ' sheet--hidden' : ''}`}>
         <button className="sheet__handle" onClick={() => setSheetOpen(!sheetOpen)} aria-expanded={sheetOpen} aria-label="Toggle controls">
           <span />
         </button>

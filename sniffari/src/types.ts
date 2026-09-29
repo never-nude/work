@@ -274,7 +274,7 @@ export interface PointOfInterest {
 }
 
 export interface RouteWarning {
-  kind: 'hot-pavement' | 'busy-crossing' | 'unlit' | 'no-sidewalk' | 'salt';
+  kind: 'hot-pavement' | 'busy-crossing' | 'unlit' | 'no-sidewalk' | 'salt' | 'steep';
   message: string;
   at?: LatLon;
 }
@@ -291,6 +291,9 @@ export interface Route {
   why: string;
   pois: PointOfInterest[];
   warnings: RouteWarning[];
+  /** Fraction of the length walked twice (loops should rarely double back). */
+  retraceFraction: number;
+  crossings: CrossingKind[];
 }
 
 export type DestinationKind = 'dog-park' | 'park' | 'grass' | 'patio' | 'pet-store';
