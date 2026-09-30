@@ -297,10 +297,11 @@ export function MapView() {
     } else pinMarkerRef.current.setLngLat([pin.lon, pin.lat]);
   }, [pin]);
 
-  // Live "you are here" dot.
+  // Live "you are here" dot; while navigating the map follows the walker.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !me) return;
+    if (useStore.getState().nav && !map.isMoving()) map.easeTo({ center: [me.lon, me.lat], zoom: Math.max(map.getZoom(), 17), duration: 800 });
     if (!meMarkerRef.current) {
       const el = document.createElement('div');
       el.className = 'me-marker';
@@ -312,7 +313,7 @@ export function MapView() {
   useEffect(() => {
     const map = mapRef.current;
     const r = routes[routeIndex];
-    if (!map || !r) return;
+    if (!map || !r || useStore.getState().nav) return;
     let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
     for (const [lon, lat] of r.coords) {
       w = Math.min(w, lon); e = Math.max(e, lon); s = Math.min(s, lat); n = Math.max(n, lat);

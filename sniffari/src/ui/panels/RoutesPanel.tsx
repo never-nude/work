@@ -3,6 +3,7 @@ import { heatColor } from '../map/heatColors';
 import { FACTOR_LABEL } from '../components/labels';
 import { ScoreBar } from '../components/ScoreBar';
 import type { EdgeFactorKey, FactorKey } from '../../types';
+import { appleMapsUrl, googleMapsUrl } from '../../routing/export';
 
 const BREAKDOWN: FactorKey[] = ['quiet', 'sidewalk', 'grass', 'terrain', 'crossings', 'crowds', 'shade'];
 const label = (k: FactorKey) => (k === 'crossings' ? 'Safe crossings' : FACTOR_LABEL[k as EdgeFactorKey]);
@@ -17,6 +18,7 @@ export function RoutesPanel() {
   const endMode = useStore((s) => s.endMode);
   const optimize = useStore((s) => s.optimize);
   const planning = useStore((s) => s.planning);
+  const startNav = useStore((s) => s.startNav);
 
   return (
     <section className="routes" aria-label="Suggested routes">
@@ -65,6 +67,29 @@ export function RoutesPanel() {
           );
         })}
       </ol>
+      {routes[idx] && (
+        <div className="export">
+          <button className="btn btn--primary" onClick={startNav}>
+            ▶ Start walk (navigate in Sniffari)
+          </button>
+          <span className="field__label">Or open route {idx + 1} in</span>
+          <div className="export__row">
+            <a className="btn btn--export" href={googleMapsUrl(routes[idx]!)} target="_blank" rel="noreferrer">
+              Google Maps
+            </a>
+            {endMode === 'elsewhere' && (
+              <a className="btn btn--export" href={appleMapsUrl(routes[idx]!)} target="_blank" rel="noreferrer">
+                Apple Maps
+              </a>
+            )}
+          </div>
+          <p className="hint">
+            {endMode === 'elsewhere'
+              ? 'Google follows this route via stops at its turns. Apple Maps only gets directions to the finish and picks its own streets.'
+              : "Google follows this loop via stops at its turns (close, not exact). Apple Maps can't open loops."}
+          </p>
+        </div>
+      )}
       <button className="btn" disabled={planning} onClick={() => void optimize()}>
         {planning ? 'Planning…' : 'Re-plan for this view'}
       </button>

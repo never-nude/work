@@ -11,6 +11,7 @@ import type {
   ScoringContext,
 } from '../types';
 import { crossesAt, type Step } from '../routing/astar';
+import { buildManeuvers } from '../routing/maneuvers';
 import { crossingsFactor } from './factors/crossings';
 import { effectiveEdgeWeights } from './scoreEdge';
 
@@ -108,6 +109,7 @@ export function scoreRoute(input: RouteScoreInput, id: string): Route {
     warnings,
     retraceFraction,
     crossings,
+    maneuvers: buildManeuvers(graph, steps, input.targetM !== null),
   };
 }
 

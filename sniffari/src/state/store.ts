@@ -4,6 +4,7 @@ import type { LatLon, ProfileId, Route, ScoringContext } from '../types';
 import type { Bounds, PlanRequest } from '../routing/loopGenerator';
 import { haversineM } from '../graph/geo';
 import { reverseGeocode } from '../data/geocode';
+import { cumulative, project } from '../routing/progress';
 import { FIXTURES, HOME_FIXTURE } from './fixtures';
 import { RoutingWorker } from './workerClient';
 
@@ -93,6 +94,8 @@ interface State {
   startMode: 'gps' | 'pin';
   /** Pin dropped by long-press / right-click, with its looked-up address. */
   pin: (LatLon & { address: string | null; resolving: boolean }) | null;
+  /** In-app navigation along the selected route. */
+  nav: { alongM: number; offM: number; arrived: boolean } | null;
 
   setStart(p: Place): void;
   setRadius(m: number): void;
@@ -116,6 +119,8 @@ interface State {
   clearPin(): void;
   pinAsStart(): void;
   pinAsFinish(): void;
+  startNav(): void;
+  stopNav(): void;
   optimize(): Promise<void>;
   selectRoute(i: number): void;
   clearRoutes(): void;
@@ -183,6 +188,40 @@ async function ipPosition(): Promise<LatLon | null> {
 }
 
 let watchId: number | null = null;
+let navCum: number[] = [];
+let wakeLock: { release(): Promise<void> } | null = null;
+
+/** Keep the screen on while navigating (best effort; not every WebView supports it). */
+async function requestWakeLock() {
+  try {
+    const wl = (navigator as unknown as { wakeLock?: { request(t: 'screen'): Promise<{ release(): Promise<void> }> } }).wakeLock;
+    wakeLock = (await wl?.request('screen')) ?? null;
+  } catch {
+    wakeLock = null;
+  }
+}
+
+/** Continuous GPS; feeds the "you" dot and navigation progress. */
+function ensureWatch() {
+  if (watchId !== null || !('geolocation' in navigator)) return;
+  watchId = navigator.geolocation.watchPosition(
+    (p) => onPosition({ lat: p.coords.latitude, lon: p.coords.longitude }),
+    () => {},
+    { enableHighAccuracy: true, maximumAge: 3000 },
+  );
+}
+
+function onPosition(me: LatLon) {
+  const s = useStore.getState();
+  if (!s.nav) return useStore.setState({ me });
+  const r = s.routes[s.routeIndex];
+  if (!r) return useStore.setState({ me });
+  const p = project(r.coords, navCum, me, s.nav.alongM);
+  // Never jump backwards more than a little (GPS jitter), unless clearly elsewhere on the route.
+  const alongM = p.alongM < s.nav.alongM - 30 && p.offM < 20 ? p.alongM : Math.max(p.alongM, s.nav.alongM - 5);
+  const arrived = s.nav.arrived || (r.lengthM - alongM < 25 && p.offM < 30);
+  useStore.setState({ me, nav: { alongM, offM: p.offM, arrived } });
+}
 let viewTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const useStore = create<State>((set, get) => {
@@ -265,6 +304,7 @@ export const useStore = create<State>((set, get) => {
     locating: false,
     startMode: 'gps',
     pin: null,
+    nav: null,
 
     setStart: (start) => set({ start }),
     setRadius: (radiusM) => set({ radiusM }),
@@ -339,13 +379,7 @@ export const useStore = create<State>((set, get) => {
       set({ locating: true, planMessage: null });
       let here = await currentPosition();
       let label = 'My location';
-      if (here && watchId === null && 'geolocation' in navigator) {
-        watchId = navigator.geolocation.watchPosition(
-          (p) => set({ me: { lat: p.coords.latitude, lon: p.coords.longitude } }),
-          () => {},
-          { enableHighAccuracy: true, maximumAge: 5000 },
-        );
-      }
+      if (here) ensureWatch();
       if (!here) {
         here = await ipPosition();
         label = 'Approximate location';
@@ -380,6 +414,21 @@ export const useStore = create<State>((set, get) => {
       if (!pin) return;
       set({ endMode: 'elsewhere', pin: null });
       get().setEndPoint({ lat: pin.lat, lon: pin.lon, label: pin.address ?? 'Dropped pin' });
+    },
+
+    startNav: () => {
+      const s = get();
+      const r = s.routes[s.routeIndex];
+      if (!r) return;
+      navCum = cumulative(r.coords);
+      set({ nav: { alongM: 0, offM: 0, arrived: false }, sheetOpen: false, selected: null, selectedId: null, pin: null });
+      ensureWatch();
+      void requestWakeLock();
+    },
+    stopNav: () => {
+      set({ nav: null, sheetOpen: true });
+      void wakeLock?.release().catch(() => {});
+      wakeLock = null;
     },
 
     goTo: (p) => {
@@ -448,6 +497,7 @@ export const useStore = create<State>((set, get) => {
     selectRoute: (routeIndex) => set({ routeIndex }),
     clearRoutes: () => {
       lastPlan = null;
+      if (get().nav) get().stopNav();
       set({ routes: [], routeIndex: 0, planMessage: null, endPoint: null, pickingEnd: false });
     },
   };

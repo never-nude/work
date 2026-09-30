@@ -6,6 +6,7 @@ import { EdgeInspector } from './panels/EdgeInspector';
 import { FinishPicker } from './panels/FinishPicker';
 import { MapButtons } from './map/MapButtons';
 import { PinCard } from './panels/PinCard';
+import { NavPanel } from './panels/NavPanel';
 
 export function App() {
   const sheetOpen = useStore((s) => s.sheetOpen);
@@ -18,6 +19,7 @@ export function App() {
   const optimize = useStore((s) => s.optimize);
   const viewTooBig = useStore((s) => s.viewTooBig);
   const pin = useStore((s) => s.pin);
+  const nav = useStore((s) => s.nav);
 
   // Fixture URLs (?fixture=…) load straight away — handy for calibration and screenshots.
   // On live data, start where the walker is (asks for location permission once).
@@ -37,11 +39,12 @@ export function App() {
         </span>
         <span className="topbar__tag">dog walks</span>
       </header>
-      <MapButtons />
+      {nav && <NavPanel />}
+      {!nav && <MapButtons />}
       {viewTooBig && !pickingEnd && <div className="toast">Zoom in to see street scores and plan a walk</div>}
       {pickingEnd && <FinishPicker />}
       <PinCard />
-      {!selected && !pickingEnd && !pin && routes.length === 0 && (
+      {!selected && !pickingEnd && !pin && !nav && routes.length === 0 && (
         <button className={`fab${sheetOpen ? ' fab--sheet-open' : ''}`} disabled={planning} onClick={() => void optimize()}>
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
             <path d="M5 19c3-1 3-6 7-7s4-6 7-7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
@@ -51,7 +54,7 @@ export function App() {
           {planning ? 'Planning…' : 'Optimize route'}
         </button>
       )}
-      <aside className={`sheet${sheetOpen ? ' sheet--open' : ''}${routes.length ? ' sheet--half' : ''}${selected || pickingEnd || pin ? ' sheet--hidden' : ''}`}>
+      <aside className={`sheet${sheetOpen ? ' sheet--open' : ''}${routes.length ? ' sheet--half' : ''}${selected || pickingEnd || pin || nav ? ' sheet--hidden' : ''}`}>
         <button className="sheet__handle" onClick={() => setSheetOpen(!sheetOpen)} aria-expanded={sheetOpen} aria-label="Toggle controls">
           <span />
         </button>

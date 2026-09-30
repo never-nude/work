@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LngLat, Route } from '../types';
-import { googleMapsUrl, MAX_GOOGLE_WAYPOINTS, pickWaypoints, toGpx } from './export';
+import { appleMapsUrl, googleMapsUrl, MAX_GOOGLE_WAYPOINTS, pickWaypoints, toGpx } from './export';
 
 // A square loop ~400 m a side with intermediate vertices.
 const sq: LngLat[] = [];
@@ -34,5 +34,15 @@ describe('gpx export', () => {
     const g = toGpx(route);
     expect(g.match(/<trkpt /g)!.length).toBe(sq.length);
     expect(g).toContain('Quiet &amp; green &lt;test&gt;');
+  });
+});
+
+describe('apple maps export', () => {
+  it('is walking directions from start to finish', () => {
+    const oneWay = { coords: sq.slice(0, 11), why: '' } as Route;
+    const u = new URL(appleMapsUrl(oneWay));
+    expect(u.host).toBe('maps.apple.com');
+    expect(u.searchParams.get('dirflg')).toBe('w');
+    expect(u.searchParams.get('saddr')).not.toBe(u.searchParams.get('daddr'));
   });
 });

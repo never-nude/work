@@ -81,6 +81,17 @@ export function googleMapsUrl(route: Route): string {
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
+/**
+ * Apple Maps walking directions from the route's start to its finish. Apple's
+ * URL format takes no intermediate stops, so it picks its own streets — only
+ * meaningful for one-way walks (a loop's start and finish are the same point).
+ */
+export function appleMapsUrl(route: Route): string {
+  const c = route.coords;
+  const params = new URLSearchParams({ saddr: fmt(c[0]!), daddr: fmt(c[c.length - 1]!), dirflg: 'w' });
+  return `https://maps.apple.com/?${params.toString()}`;
+}
+
 /** GPX track — the exact path, for Strava, Gaia, AllTrails, Komoot, etc. */
 export function toGpx(route: Route, name = 'Sniffari walk'): string {
   const esc = (s: string) => s.replace(/[<>&"]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[ch]!);

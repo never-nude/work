@@ -294,6 +294,19 @@ export interface Route {
   /** Fraction of the length walked twice (loops should rarely double back). */
   retraceFraction: number;
   crossings: CrossingKind[];
+  /** Turn-by-turn instructions for in-app navigation, in walking order. */
+  maneuvers: Maneuver[];
+}
+
+export type ManeuverKind = 'start' | 'left' | 'right' | 'slight-left' | 'slight-right' | 'sharp-left' | 'sharp-right' | 'straight' | 'u-turn' | 'arrive';
+
+export interface Maneuver {
+  kind: ManeuverKind;
+  /** Distance along the route (m) where it happens. */
+  atM: number;
+  lngLat: LngLat;
+  /** "Turn left onto Oak Avenue" */
+  text: string;
 }
 
 export type DestinationKind = 'dog-park' | 'park' | 'grass' | 'patio' | 'pet-store';

@@ -74,3 +74,8 @@ Open: not tried on real White Plains data (network-blocked here); GPS start unte
 Completed: street scores follow the map view (auto-load on pan/zoom, circle = loaded area); locate-me button (GPS, IP fallback) + live position dot; address search button; long-press / right-click drops a pin with reverse-geocoded address → Start here / Finish here; "Somewhere else" opens a finish picker (tap, search, or crosshair); unnamed footways described from surroundings ("Sidewalk · Main Street", "Path in Cottage Green"); planning area = view ∪ start ∪ finish + margin; finish never snaps onto the start corner. Capacitor iOS project (`sniffari/ios`), location permission, placeholder icon, `npm run ios`, docs/IOS.md.
 Validation: 107 tests; typecheck/build; flows driven in headless Chromium on the synthetic fixture. The iOS project was generated on Linux and has NOT been built in Xcode yet.
 Next: on the Mac, `npm run ios` and Run on the iPhone (docs/IOS.md); TestFlight if the paid developer account is available.
+
+### 2026-09-30 — route export + in-app navigation
+Completed: "Open in Google Maps" (8 stopovers at the route's turns; close, not exact), "Apple Maps" for one-way walks (directions to the finish only — Apple's URLs take no stops), and in-app turn-by-turn ("Start walk"): instructions from street changes/turns, progress by projecting GPS onto the route (loop-safe), off-route warning, arrival, screen wake lock, map follows the walker. US units in navigation.
+Validation: 115 tests; typecheck/build/cap sync; simulated GPS walk in headless Chromium through every turn, an off-route detour and arrival.
+Open: real-device GPS behaviour and wake lock inside the iOS WebView untested.
