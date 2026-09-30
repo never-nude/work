@@ -10,7 +10,11 @@ Privacy, enforced by the database (tested in `supabase/tests`):
 - Your live position isn't published within 150 m of your start or finish, and that part of the route is never shared.
 - Only the neighbourhood/town is shared as the walk's place. Walks end when you finish and expire on their own (max 4 h).
 
-## One-time setup (~20 min)
+## One-time setup
+
+**Fast way (Terminal):** `cd ~/sniffari-work/sniffari && git pull && bash scripts/setup-social.sh` — does everything below except creating the Apple push key, which it opens in your browser and walks you through.
+
+### Manual steps (if you prefer)
 
 ### 1. Supabase project
 1. <https://supabase.com> → New project (free tier). Region: US East.
