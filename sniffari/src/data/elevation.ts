@@ -88,7 +88,15 @@ export async function fetchTerrariumTile(
   signal?: AbortSignal,
   url = terrariumUrl(z, x, y),
 ): Promise<DecodedTile> {
-  const res = await fetch(url, { signal });
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 20_000);
+  signal?.addEventListener('abort', () => ctl.abort());
+  let res: Response;
+  try {
+    res = await fetch(url, { signal: ctl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) throw new Error(`Elevation tile ${z}/${x}/${y}: ${res.status}`);
   const bmp = await createImageBitmap(await res.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
   const canvas = new OffscreenCanvas(TILE, TILE);

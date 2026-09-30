@@ -105,6 +105,8 @@ paste it back so we can tune.
 
 - **Optimize route in view** (Phase 2 routing, pulled forward at Mike's request): `routing/astar.ts`, `routing/loopGenerator.ts` (`Planner`), `scoring/scoreRoute.ts`; worker `plan` → `routes` messages; floating button + walk/finish panel + route cards in the UI.
 
+- **Next priority (Mike, 2026-09-30): live location sharing** so users can coordinate walks and play dates with everyone or chosen people. Needs a backend and accounts (SPEC §10 non-goal for v1) — proposal and open decisions in chat; not started.
+
 ### Original list
 
 **Model**

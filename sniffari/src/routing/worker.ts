@@ -24,7 +24,7 @@ const fixtureElevation = import.meta.glob<string>('../../fixtures/*.elevation/*.
 
 const cache = new TTLCache();
 /** Extra data beyond the walk radius so features (grass, major roads) near the edge are seen. */
-const MARGIN_M = 400;
+const MARGIN_M = 250;
 const MAX_PARALLEL = 2; // Overpass allows ~2 concurrent slots per IP
 
 let graph: BuiltGraph | null = null;
@@ -33,6 +33,7 @@ let fetchMs = 0;
 let tileStats = { total: 0, cached: 0 };
 let elevationTiles = 0;
 let scores: EdgeScore[] = [];
+let currentRequest = -1;
 
 const post = (msg: WorkerResponse) => self.postMessage(msg);
 
@@ -88,10 +89,20 @@ async function loadElevation(center: LatLon, radiusM: number, source: DataSource
         tiles.push(await fetchTerrariumTile(z, x, y, undefined, await load()));
       }
     } else {
-      for (const t of tilesForElevation(bboxAround(center, radiusM + MARGIN_M))) {
-        const { value } = await cache.getOrFetch(`terrarium:${t.z}/${t.x}/${t.y}`, () => fetchTerrariumTile(t.z, t.x, t.y));
-        tiles.push(value);
-      }
+      const want = tilesForElevation(bboxAround(center, radiusM + MARGIN_M));
+      let done = 0;
+      const queue = [...want];
+      await Promise.all(
+        Array.from({ length: 4 }, async () => {
+          while (queue.length) {
+            const t = queue.shift()!;
+            const { value } = await cache.getOrFetch(`terrarium:${t.z}/${t.x}/${t.y}`, () => fetchTerrariumTile(t.z, t.x, t.y));
+            tiles.push(value);
+            done++;
+            post({ type: 'progress', requestId: currentRequest, stage: 'fetch', done, total: want.length, message: `Elevation ${done}/${want.length}` });
+          }
+        }),
+      );
     }
   } catch (e) {
     console.warn('Elevation unavailable:', e);
@@ -117,6 +128,7 @@ self.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
   const req = ev.data;
   try {
     if (req.type === 'load') {
+      currentRequest = req.requestId;
       current = { profileId: req.profileId, ctx: req.ctx };
       const t0 = performance.now();
       const responses = await loadResponses(req.requestId, req.center, req.radiusM, req.source);

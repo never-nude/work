@@ -12,6 +12,7 @@ import './maplibreWorker';
 import { useStore } from '../../state/store';
 import { BASEMAP_STYLES, BLANK_DARK_STYLE } from './basemap';
 import { EXCLUDED_COLOR, HEAT_STOPS } from './heatColors';
+import { haversineM } from '../../graph/geo';
 
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
@@ -50,7 +51,7 @@ function addOverlay(map: MLMap) {
     id: 'radius',
     type: 'line',
     source: 'radius',
-    paint: { 'line-color': '#a78bfa', 'line-opacity': 0.5, 'line-width': 1.5, 'line-dasharray': [3, 3] },
+    paint: { 'line-color': '#ae83fa', 'line-opacity': 0.8, 'line-width': 2.5, 'line-dasharray': [2, 2] },
   });
   map.addLayer({
     id: 'edges-excluded',
@@ -127,7 +128,7 @@ export function MapView() {
   const markerRef = useRef<Marker | null>(null);
 
   const start = useStore((s) => s.start);
-  const loadedArea = useStore((s) => s.loadedArea);
+  const viewArea = useStore((s) => s.viewArea);
   const me = useStore((s) => s.me);
   const meMarkerRef = useRef<Marker | null>(null);
   const pin = useStore((s) => s.pin);
@@ -149,8 +150,10 @@ export function MapView() {
       container: container.current,
       style: BASEMAP_STYLES[0]!,
       center: [s.lon, s.lat],
-      zoom: 15,
+      zoom: 14.3,
       attributionControl: { compact: true },
+      dragRotate: false,
+      pitchWithRotate: false,
     });
     mapRef.current = map;
     map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
@@ -162,7 +165,29 @@ export function MapView() {
       getViewBounds: viewBounds,
       flyTo: (p, zoom) => map.flyTo({ center: [p.lon, p.lat], zoom: zoom ?? map.getZoom(), duration: 900 }),
     });
-    map.on('moveend', () => useStore.getState().onViewChanged(viewBounds()));
+    // The walk area: a circle in the middle of the visible map (above the phone sheet,
+    // left of the desktop panel). Drag to move it, pinch to resize it.
+    const walkArea = () => {
+      const { clientWidth: w, clientHeight: h } = map.getContainer();
+      const phone = w < 820;
+      const visW = phone ? w : w - 400;
+      const top = 80;
+      const bottom = phone ? h - 150 : h;
+      const cx = visW / 2;
+      const cy = (top + bottom) / 2;
+      const rPx = Math.max(40, 0.44 * Math.min(visW, bottom - top));
+      const c = map.unproject([cx, cy]);
+      const e = map.unproject([cx + rPx, cy]);
+      const center = { lat: c.lat, lon: c.lng };
+      return { center, radiusM: haversineM(center, { lat: e.lat, lon: e.lng }) };
+    };
+    const drawWalk = () => {
+      const a = walkArea();
+      (map.getSource('radius') as GeoJSONSource | undefined)?.setData(radiusCircle(a.center.lat, a.center.lon, a.radiusM));
+    };
+    map.on('move', drawWalk);
+    map.on('moveend', () => useStore.getState().onViewChanged(walkArea()));
+    void viewBounds;
 
     // Drop a pin: right-click / two-finger click on desktop, long-press on touch.
     map.on('contextmenu', (e) => {
@@ -186,7 +211,10 @@ export function MapView() {
     map.on('touchend', () => clearTimeout(pressTimer));
     map.on('touchcancel', () => clearTimeout(pressTimer));
     map.on('movestart', () => clearTimeout(pressTimer));
-    map.once('load', () => useStore.getState().onViewChanged(viewBounds()));
+    map.once('load', () => {
+      drawWalk();
+      useStore.getState().onViewChanged(walkArea());
+    });
 
     const fallback = () => {
       styleIdx++;
@@ -257,8 +285,8 @@ export function MapView() {
     const s = useStore.getState();
     (map.getSource('edges') as GeoJSONSource | undefined)?.setData(s.heatmap?.edges ?? EMPTY);
     (map.getSource('crossings') as GeoJSONSource | undefined)?.setData(s.heatmap?.crossings ?? EMPTY);
-    // The circle shows the area whose streets are loaded — it follows the view as you pan and zoom.
-    const a = s.loadedArea;
+    // The circle is the walk area (drawn live on move; here for style reloads).
+    const a = s.viewArea;
     (map.getSource('radius') as GeoJSONSource | undefined)?.setData(a ? radiusCircle(a.center.lat, a.center.lon, a.radiusM) : EMPTY);
     if (map.getLayer('edges-selected')) map.setFilter('edges-selected', ['==', ['get', 'id'], s.selectedId ?? -2]);
     (map.getSource('routes') as GeoJSONSource | undefined)?.setData({
@@ -279,7 +307,7 @@ export function MapView() {
   useEffect(() => {
     const map = mapRef.current;
     if (map?.isStyleLoaded()) syncData(map);
-  }, [heatmap, loadedArea, start, selectedId, routes, routeIndex]);
+  }, [heatmap, viewArea, start, selectedId, routes, routeIndex]);
 
   // Dropped pin.
   useEffect(() => {

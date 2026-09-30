@@ -1212,3 +1212,76 @@ select.input {
     transform: translateX(-50%);
   }
 }
+
+/* ------------------------------------------------------------ status pill */
+
+.pill {
+  position: absolute;
+  top: calc(84px + var(--safe-t));
+  left: 12px;
+  right: 76px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 14px;
+  border-radius: 16px;
+  background: rgba(22, 19, 28, 0.94);
+  border: 1px solid var(--line);
+  font-weight: 700;
+  font-size: 15px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.pill--error {
+  border-color: var(--danger);
+  color: #ffc2cd;
+}
+
+.pill--info {
+  border-color: var(--accent);
+}
+
+.pill__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.pill__pct {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.pill__btn {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pill__spinner {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2.5px solid var(--line);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+
+@media (min-width: 820px) {
+  .pill {
+    right: auto;
+    width: 420px;
+  }
+}
+
+/* keep MapLibre's attribution clear of the Optimize button */
+.maplibregl-ctrl-bottom-right {
+  bottom: auto !important;
+  top: calc(300px + var(--safe-t));
+}

@@ -5,6 +5,7 @@ import type { Bounds, PlanRequest } from '../routing/loopGenerator';
 import { haversineM } from '../graph/geo';
 import { reverseGeocode } from '../data/geocode';
 import { cumulative, project } from '../routing/progress';
+import { haptic } from '../ui/haptics';
 import { FIXTURES, HOME_FIXTURE } from './fixtures';
 import { RoutingWorker } from './workerClient';
 
@@ -86,7 +87,7 @@ interface State {
   flyTo: ((p: LatLon, zoom?: number) => void) | null;
   /** Live GPS position while the app is open (null until permission is granted). */
   me: LatLon | null;
-  /** Circle covering the current map view; null when zoomed out too far to plan. */
+  /** The walk area: a circle centred on the map, sized to the visible screen. Pan to move it, pinch to resize. */
   viewArea: Area | null;
   viewTooBig: boolean;
   locating: boolean;
@@ -112,7 +113,7 @@ interface State {
   setEndMode(m: 'loop' | 'elsewhere'): void;
   setEndPoint(p: Place | null): void;
   startPicking(): void;
-  onViewChanged(b: Bounds): void;
+  onViewChanged(area: Area): void;
   locateMe(): Promise<void>;
   goTo(p: Place): void;
   dropPin(p: LatLon): void;
@@ -120,6 +121,8 @@ interface State {
   pinAsStart(): void;
   pinAsFinish(): void;
   startNav(): void;
+  cancelPlan(): void;
+  retryLoad(): void;
   stopNav(): void;
   optimize(): Promise<void>;
   selectRoute(i: number): void;
@@ -163,6 +166,12 @@ function areaCovering(b: Bounds, pts: LatLon[]): Area {
   return { center, radiusM: Math.max(...corners.map((c) => haversineM(center, c))) };
 }
 
+function circleBounds(a: Area): Bounds {
+  const dLat = a.radiusM / 110_574;
+  const dLon = a.radiusM / (111_320 * Math.cos((a.center.lat * Math.PI) / 180));
+  return [a.center.lat - dLat, a.center.lon - dLon, a.center.lat + dLat, a.center.lon + dLon];
+}
+
 function covers(outer: Area, inner: Area): boolean {
   return haversineM(outer.center, inner.center) + inner.radiusM <= outer.radiusM + 50;
 }
@@ -188,6 +197,9 @@ async function ipPosition(): Promise<LatLon | null> {
 }
 
 let watchId: number | null = null;
+let lastActivity = 0;
+let watchdog: ReturnType<typeof setInterval> | undefined;
+const STALL_MS = 45_000;
 let navCum: number[] = [];
 let wakeLock: { release(): Promise<void> } | null = null;
 
@@ -220,6 +232,13 @@ function onPosition(me: LatLon) {
   // Never jump backwards more than a little (GPS jitter), unless clearly elsewhere on the route.
   const alongM = p.alongM < s.nav.alongM - 30 && p.offM < 20 ? p.alongM : Math.max(p.alongM, s.nav.alongM - 5);
   const arrived = s.nav.arrived || (r.lengthM - alongM < 25 && p.offM < 30);
+  if (arrived && !s.nav.arrived) haptic('success');
+  if (p.offM > 35 && s.nav.offM <= 35) haptic('warning');
+  // A firm tap as each turn comes up (once per maneuver, ~15 m before it).
+  for (const m of r.maneuvers) {
+    if (m.kind === 'start' || m.kind === 'arrive' || m.kind === 'straight') continue;
+    if (s.nav.alongM < m.atM - 15 && alongM >= m.atM - 15) haptic('turn');
+  }
   useStore.setState({ me, nav: { alongM, offM: p.offM, arrived } });
 }
 let viewTimer: ReturnType<typeof setTimeout> | undefined;
@@ -233,10 +252,13 @@ export const useStore = create<State>((set, get) => {
   };
 
   worker.onMessage((msg) => {
+    lastActivity = Date.now();
     if (msg.type === 'progress') {
       if (msg.requestId === loadRequest || msg.requestId === planRequest) set({ progress: msg });
     } else if (msg.type === 'heatmap') {
       set({ heatmap: msg.payload, status: 'ready', progress: null, error: null });
+      // The map may have moved while this load ran — make sure the current walk area is covered too.
+      if (!pendingPlan) setTimeout(() => ensureStreetsForView(), 0);
       const id = get().selectedId;
       if (id !== null) get().inspect(id); // refresh the inspector under the new profile/time
       if (pendingPlan) {
@@ -248,6 +270,7 @@ export const useStore = create<State>((set, get) => {
       if (msg.requestId === inspectRequest) set({ selected: msg.detail });
     } else if (msg.type === 'routes') {
       if (msg.requestId !== planRequest) return;
+      haptic(msg.routes.length ? 'success' : 'warning');
       set({
         planning: false,
         progress: null,
@@ -260,9 +283,20 @@ export const useStore = create<State>((set, get) => {
       });
     } else if (msg.type === 'error') {
       pendingPlan = null;
+      haptic('warning');
       set({ status: get().heatmap ? 'ready' : 'error', error: msg.message, progress: null, planning: false });
     }
   });
+
+  /** Load street data for the walk area if what's loaded doesn't cover it. */
+  const ensureStreetsForView = () => {
+    const s = get();
+    const area = s.viewArea;
+    if (!area || s.source.kind !== 'live' || s.routes.length || s.nav) return;
+    if (s.locating || s.status === 'loading') return; // re-checked when these finish
+    if (s.loadedArea && covers(s.loadedArea, area)) return;
+    s.load({ center: area.center, radiusM: Math.max(500, area.radiusM * 1.15) });
+  };
 
   const rescore = () => {
     const s = get();
@@ -334,6 +368,18 @@ export const useStore = create<State>((set, get) => {
       const s = get();
       const a = area ?? { center: { lat: s.start.lat, lon: s.start.lon }, radiusM: s.radiusM };
       set({ status: 'loading', error: null, selected: null, selectedId: null, progress: null, loadedArea: a });
+      // If the worker goes quiet (hung request, dead worker), surface it instead of spinning forever.
+      lastActivity = Date.now();
+      clearInterval(watchdog);
+      watchdog = setInterval(() => {
+        const st = get();
+        if (st.status !== 'loading') return clearInterval(watchdog);
+        if (Date.now() - lastActivity > STALL_MS) {
+          clearInterval(watchdog);
+          pendingPlan = null;
+          set({ status: st.heatmap ? 'ready' : 'error', error: 'Map data is taking too long — check your connection.', planning: false, progress: null, loadedArea: null });
+        }
+      }, 5000);
       loadRequest = worker.send({
         type: 'load',
         center: a.center,
@@ -358,21 +404,11 @@ export const useStore = create<State>((set, get) => {
     },
     startPicking: () => set({ pickingEnd: true, sheetOpen: false, selected: null, selectedId: null, planMessage: null }),
 
-    onViewChanged: (b) => {
-      const area = areaCovering(b, []);
+    onViewChanged: (area) => {
       const tooBig = area.radiusM > MAX_PLAN_RADIUS_M;
       set({ viewArea: tooBig ? null : area, viewTooBig: tooBig });
-      const s = get();
-      // Street scores follow the view (live data only; fixtures are a fixed area).
-      if (tooBig || s.source.kind !== 'live' || s.routes.length || s.status === 'loading') return;
-      if (s.loadedArea && covers(s.loadedArea, area)) return;
       clearTimeout(viewTimer);
-      viewTimer = setTimeout(() => {
-        const now = get();
-        if (now.status === 'loading' || now.routes.length || !now.viewArea) return;
-        // Load a bit beyond the view so small pans don't refetch.
-        now.load({ center: now.viewArea.center, radiusM: Math.max(600, now.viewArea.radiusM * 1.3) });
-      }, 700);
+      viewTimer = setTimeout(() => ensureStreetsForView(), 600);
     },
 
     locateMe: async () => {
@@ -386,6 +422,8 @@ export const useStore = create<State>((set, get) => {
         if (here) set({ planMessage: "GPS unavailable — using your network's approximate location. Allow location access for accuracy." });
       }
       set({ locating: false });
+      // Nothing loads until we know where the walker is; if we never find out, load what's on screen.
+      if (!here) setTimeout(() => ensureStreetsForView(), 0);
       if (!here) {
         set({ planMessage: 'Could not find your location. Search an address instead.' });
         return;
@@ -396,6 +434,7 @@ export const useStore = create<State>((set, get) => {
     },
 
     dropPin: (p) => {
+      haptic('press');
       set({ pin: { ...p, address: null, resolving: true }, selected: null, selectedId: null });
       void reverseGeocode(p).then((address) => {
         const cur = get().pin;
@@ -414,6 +453,17 @@ export const useStore = create<State>((set, get) => {
       if (!pin) return;
       set({ endMode: 'elsewhere', pin: null });
       get().setEndPoint({ lat: pin.lat, lon: pin.lon, label: pin.address ?? 'Dropped pin' });
+    },
+
+    cancelPlan: () => {
+      pendingPlan = null;
+      planRequest = -1;
+      set({ planning: false, planMessage: null, progress: get().status === 'loading' ? get().progress : null });
+    },
+    retryLoad: () => {
+      set({ error: null, loadedArea: null, status: get().heatmap ? 'ready' : 'idle' });
+      const a = get().viewArea;
+      if (a) get().load({ center: a.center, radiusM: Math.max(500, a.radiusM * 1.15) });
     },
 
     startNav: () => {
@@ -435,7 +485,7 @@ export const useStore = create<State>((set, get) => {
       const s = get();
       if (s.source.kind !== 'live') set({ source: { kind: 'live' }, loadedArea: null });
       set({ start: p, startMode: 'pin' });
-      s.flyTo?.(p, 15.5);
+      s.flyTo?.(p, 14.3);
     },
 
     setEndPoint: (endPoint) => {
@@ -468,7 +518,9 @@ export const useStore = create<State>((set, get) => {
       }
       if (located) set({ start });
 
-      const bounds = get().getViewBounds?.() ?? null;
+      // Plan inside the walk circle (grown to include the start and finish if they sit outside it).
+      const walk = get().viewArea;
+      const bounds: Bounds | null = walk ? circleBounds(walk) : (get().getViewBounds?.() ?? null);
       const pts = [start, ...(s.endPoint ? [s.endPoint] : [])];
       const area = bounds ? areaCovering(bounds, pts) : { center: start, radiusM: s.radiusM };
       if (area.radiusM > MAX_PLAN_RADIUS_M) {

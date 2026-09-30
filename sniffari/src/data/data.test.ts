@@ -37,6 +37,18 @@ describe('fetchOverpass', () => {
   });
 });
 
+describe('fetchOverpass timeout', () => {
+  it('fails over to the next endpoint when one hangs', async () => {
+    const fetchImpl = vi.fn((url: string, init: RequestInit) =>
+      url === 'slow'
+        ? new Promise<Response>((_, reject) => init.signal!.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))))
+        : Promise.resolve(new Response(JSON.stringify({ elements: [1] }), { status: 200 })),
+    );
+    const r = await fetchOverpass('q', { endpoints: ['slow', 'fast'], fetchImpl: fetchImpl as unknown as typeof fetch, timeoutMs: 50 });
+    expect(r.elements).toEqual([1]);
+  });
+});
+
 describe('TTLCache', () => {
   it('expires entries after the TTL', async () => {
     let now = 0;

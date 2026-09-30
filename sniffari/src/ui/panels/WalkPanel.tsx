@@ -46,7 +46,7 @@ export function WalkPanel() {
       </button>
       <p className="hint">
         Starting from <strong>{s.startMode === 'gps' && s.source.kind === 'live' ? 'your location' : s.start.label}</strong>. Stays inside
-        what's on screen. Long-press or right-click the map to drop a pin.
+        the purple circle — drag the map to move it, pinch to resize. Long-press or right-click to drop a pin.
       </p>
     </section>
   );

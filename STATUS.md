@@ -79,3 +79,9 @@ Next: on the Mac, `npm run ios` and Run on the iPhone (docs/IOS.md); TestFlight 
 Completed: "Open in Google Maps" (8 stopovers at the route's turns; close, not exact), "Apple Maps" for one-way walks (directions to the finish only — Apple's URLs take no stops), and in-app turn-by-turn ("Start walk"): instructions from street changes/turns, progress by projecting GPS onto the route (loop-safe), off-route warning, arrival, screen wake lock, map follows the walker. US units in navigation.
 Validation: 115 tests; typecheck/build/cap sync; simulated GPS walk in headless Chromium through every turn, an off-route detour and arrival.
 Open: real-device GPS behaviour and wake lock inside the iOS WebView untested.
+
+### 2026-09-30 — first on-device run fixes
+Mike ran the app on his iPhone: basemap OK, but no street colours, "Planning…" forever, radius not controllable, no haptics.
+Fixed: streets only load once location is known and re-check coverage after each load (the first load was for downtown and never refreshed); walk circle = centre of the visible map, drag/pinch to move/resize, planning uses it; request timeouts with endpoint failover; stall watchdog; always-visible status pill with Retry/Cancel; Capacitor haptics (pin drop, route ready, turns, off-route, arrival); zoom sized for a 30-min walk.
+Validation: 116 tests; simulated live flow in Chromium with a mocked Overpass (located → one load → routes).
+Next priority from Mike: live location sharing between users (needs backend — decisions pending).

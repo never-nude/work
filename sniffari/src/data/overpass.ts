@@ -52,7 +52,7 @@ const HIGHWAYS =
  *     already covered by (1) — plus multipolygon relations
  *  3. point features: trees, shops/food, transit, amenities; shops mapped as buildings via `out center`
  */
-export function buildQuery(bbox: BBox, timeoutS = 90): string {
+export function buildQuery(bbox: BBox, timeoutS = 50): string {
   // Explicit per-statement bbox (not the global [bbox:] setting) so that
   // node(w.roads) returns every node of a road, even beyond the tile edge.
   const b = `(${bbox.join(',')})`;
@@ -109,18 +109,27 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  */
 export async function fetchOverpass(
   query: string,
-  opts: { signal?: AbortSignal; endpoints?: string[]; fetchImpl?: typeof fetch } = {},
+  opts: { signal?: AbortSignal; endpoints?: string[]; fetchImpl?: typeof fetch; timeoutMs?: number } = {},
 ): Promise<OverpassResponse> {
   const endpoints = opts.endpoints ?? OVERPASS_ENDPOINTS;
   const f = opts.fetchImpl ?? fetch;
   let lastErr: unknown;
   for (const url of endpoints) {
     for (let attempt = 0; attempt < 2; attempt++) {
+      // Our own timeout: a hung server must fail over to the next endpoint, not spin forever.
+      const ctl = new AbortController();
+      let timedOut = false;
+      const timer = setTimeout(() => {
+        timedOut = true;
+        ctl.abort();
+      }, opts.timeoutMs ?? 60_000);
+      const onAbort = () => ctl.abort();
+      opts.signal?.addEventListener('abort', onAbort);
       try {
         const res = await f(url, {
           method: 'POST',
           body: new URLSearchParams({ data: query }),
-          signal: opts.signal,
+          signal: ctl.signal,
         });
         if (res.status === 429 || res.status === 504) {
           lastErr = new OverpassError(`Overpass busy (${res.status})`, res.status);
@@ -134,9 +143,12 @@ export async function fetchOverpass(
         }
         return json;
       } catch (e) {
-        if ((e as Error).name === 'AbortError') throw e;
-        lastErr = e;
+        if ((e as Error).name === 'AbortError' && !timedOut) throw e;
+        lastErr = timedOut ? new OverpassError(`Map data server timed out (${url.replace(/^https?:\/\//, '').split('/')[0]})`) : e;
         break;
+      } finally {
+        clearTimeout(timer);
+        opts.signal?.removeEventListener('abort', onAbort);
       }
     }
   }

@@ -7,6 +7,8 @@ import { FinishPicker } from './panels/FinishPicker';
 import { MapButtons } from './map/MapButtons';
 import { PinCard } from './panels/PinCard';
 import { NavPanel } from './panels/NavPanel';
+import { StatusPill } from './components/StatusPill';
+import { haptic } from './haptics';
 
 export function App() {
   const sheetOpen = useStore((s) => s.sheetOpen);
@@ -17,7 +19,6 @@ export function App() {
   const planning = useStore((s) => s.planning);
   const routes = useStore((s) => s.routes);
   const optimize = useStore((s) => s.optimize);
-  const viewTooBig = useStore((s) => s.viewTooBig);
   const pin = useStore((s) => s.pin);
   const nav = useStore((s) => s.nav);
 
@@ -41,11 +42,14 @@ export function App() {
       </header>
       {nav && <NavPanel />}
       {!nav && <MapButtons />}
-      {viewTooBig && !pickingEnd && <div className="toast">Zoom in to see street scores and plan a walk</div>}
+      <StatusPill />
       {pickingEnd && <FinishPicker />}
       <PinCard />
       {!selected && !pickingEnd && !pin && !nav && routes.length === 0 && (
-        <button className={`fab${sheetOpen ? ' fab--sheet-open' : ''}`} disabled={planning} onClick={() => void optimize()}>
+        <button className={`fab${sheetOpen ? ' fab--sheet-open' : ''}`} disabled={planning} onClick={() => {
+          haptic('tap');
+          void optimize();
+        }}>
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
             <path d="M5 19c3-1 3-6 7-7s4-6 7-7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
             <circle cx="5" cy="19" r="2.4" fill="currentColor" />
