@@ -4,6 +4,7 @@ import { TIME_PRESETS, useStore, type TimePreset } from '../../state/store';
 import { Legend } from '../components/Legend';
 import { RoutesPanel } from './RoutesPanel';
 import { WalkPanel } from './WalkPanel';
+import { PackPanel } from './PackPanel';
 
 export function ControlSheet() {
   const s = useStore();
@@ -58,6 +59,7 @@ export function ControlSheet() {
       {s.error && <p className="hint hint--error">{s.error}</p>}
       {dog}
       {when}
+      <PackPanel />
 
       <details className="more">
         <summary>Street-quality map legend &amp; data</summary>

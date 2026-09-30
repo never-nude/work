@@ -156,6 +156,7 @@ export function MapView() {
       pitchWithRotate: false,
     });
     mapRef.current = map;
+    (globalThis as unknown as { __sniffariMap?: MLMap }).__sniffariMap = map; // for overlay layers (pack walks)
     map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
     const viewBounds = (): [number, number, number, number] => {
       const b = map.getBounds();

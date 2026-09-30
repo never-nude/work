@@ -1285,3 +1285,93 @@ select.input {
   bottom: auto !important;
   top: calc(300px + var(--safe-t));
 }
+
+/* ------------------------------------------------------------ pack */
+
+.pack__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.pack__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pack__walk {
+  width: 100%;
+  text-align: left;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--grass);
+  background: var(--ink-2);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pack__live {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--grass);
+  box-shadow: 0 0 0 4px rgba(111, 198, 111, 0.25);
+}
+
+.pack__signout {
+  align-self: flex-start;
+  min-height: 40px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.segmented--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.segmented--3 button {
+  font-size: 14px;
+  padding: 0 4px;
+}
+
+.nav-card__live {
+  margin: 10px 0 0;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.pack-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.pack-marker__dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--grass);
+  border: 3px solid var(--text);
+  box-shadow: 0 0 0 6px rgba(111, 198, 111, 0.3);
+}
+
+.pack-marker__name {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--ink);
+  border: 1px solid var(--grass);
+  color: var(--text);
+  font-weight: 800;
+  font-size: 13px;
+  white-space: nowrap;
+}

@@ -1,6 +1,7 @@
 import { useStore } from '../../state/store';
 import { nextManeuver } from '../../routing/progress';
 import type { ManeuverKind } from '../../types';
+import { useSocial } from '../../social/store';
 
 const ARROW: Record<ManeuverKind, string> = {
   start: '↑', straight: '↑', left: '←', right: '→', 'slight-left': '↖', 'slight-right': '↗',
@@ -22,6 +23,8 @@ export function NavPanel() {
   const me = useStore((s) => s.me);
   const stopNav = useStore((s) => s.stopNav);
   const flyTo = useStore((s) => s.flyTo);
+  const myWalk = useSocial((s) => s.myWalk);
+  const dog = useSocial((s) => s.dog);
   if (!nav || !route) return null;
 
   const next = nextManeuver(route.maneuvers, nav.alongM);
@@ -53,6 +56,11 @@ export function NavPanel() {
             </div>
           </div>
         ) : null}
+        {myWalk && !nav.arrived && (
+          <p className="nav-card__live">
+            ● LIVE · your {myWalk.audience === 'fof' ? 'pack and their friends' : 'pack'} can see {dog?.dog_name ?? 'your dog'}
+          </p>
+        )}
         {off && !nav.arrived && <p className="nav-card__off">Off route by {dist(nav.offM)} — head back to the purple line</p>}
       </section>
       <section className="nav-bar">

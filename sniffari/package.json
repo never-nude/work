@@ -20,6 +20,8 @@
     "@capacitor/core": "^8.5.2",
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.5.2",
+    "@capacitor/push-notifications": "^8.1.2",
+    "@supabase/supabase-js": "^2.117.2",
     "flatbush": "^4.6.2",
     "idb-keyval": "^6.3.0",
     "maplibre-gl": "^6.11.2",

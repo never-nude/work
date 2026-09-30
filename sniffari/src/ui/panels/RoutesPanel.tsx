@@ -4,6 +4,7 @@ import { FACTOR_LABEL } from '../components/labels';
 import { ScoreBar } from '../components/ScoreBar';
 import type { EdgeFactorKey, FactorKey } from '../../types';
 import { appleMapsUrl, googleMapsUrl } from '../../routing/export';
+import { useSocial, type ShareMode } from '../../social/store';
 
 const BREAKDOWN: FactorKey[] = ['quiet', 'sidewalk', 'grass', 'terrain', 'crossings', 'crowds', 'shade'];
 const label = (k: FactorKey) => (k === 'crossings' ? 'Safe crossings' : FACTOR_LABEL[k as EdgeFactorKey]);
@@ -19,6 +20,7 @@ export function RoutesPanel() {
   const optimize = useStore((s) => s.optimize);
   const planning = useStore((s) => s.planning);
   const startNav = useStore((s) => s.startNav);
+  const social = useSocial();
 
   return (
     <section className="routes" aria-label="Suggested routes">
@@ -69,6 +71,23 @@ export function RoutesPanel() {
       </ol>
       {routes[idx] && (
         <div className="export">
+          {social.signedIn && social.dog && (
+            <div className="field">
+              <span className="field__label">Share this walk live</span>
+              <div className="segmented segmented--3" role="radiogroup">
+                {(['off', 'friends', 'fof'] as ShareMode[]).map((m) => (
+                  <button key={m} role="radio" aria-checked={social.shareMode === m} className={social.shareMode === m ? 'on' : ''} onClick={() => social.setShareMode(m)}>
+                    {m === 'off' ? 'Private' : m === 'friends' ? 'Pack' : 'Pack + their friends'}
+                  </button>
+                ))}
+              </div>
+              {social.shareMode !== 'off' && (
+                <p className="hint">
+                  They'll get “🐕 {social.dog.dog_name} is walking”. Your start and finish stay hidden; sharing ends when you finish.
+                </p>
+              )}
+            </div>
+          )}
           <button className="btn btn--primary" onClick={startNav}>
             ▶ Start walk (navigate in Sniffari)
           </button>

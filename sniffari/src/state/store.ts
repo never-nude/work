@@ -6,6 +6,7 @@ import { haversineM } from '../graph/geo';
 import { reverseGeocode } from '../data/geocode';
 import { cumulative, project } from '../routing/progress';
 import { haptic } from '../ui/haptics';
+import { useSocial } from '../social/store';
 import { FIXTURES, HOME_FIXTURE } from './fixtures';
 import { RoutingWorker } from './workerClient';
 
@@ -228,6 +229,7 @@ function onPosition(me: LatLon) {
   if (!s.nav) return useStore.setState({ me });
   const r = s.routes[s.routeIndex];
   if (!r) return useStore.setState({ me });
+  useSocial.getState().onMyPosition(me);
   const p = project(r.coords, navCum, me, s.nav.alongM);
   // Never jump backwards more than a little (GPS jitter), unless clearly elsewhere on the route.
   const alongM = p.alongM < s.nav.alongM - 30 && p.offM < 20 ? p.alongM : Math.max(p.alongM, s.nav.alongM - 5);
@@ -474,9 +476,11 @@ export const useStore = create<State>((set, get) => {
       set({ nav: { alongM: 0, offM: 0, arrived: false }, sheetOpen: false, selected: null, selectedId: null, pin: null });
       ensureWatch();
       void requestWakeLock();
+      void useSocial.getState().goLive(r);
     },
     stopNav: () => {
       set({ nav: null, sheetOpen: true });
+      void useSocial.getState().endLive();
       void wakeLock?.release().catch(() => {});
       wakeLock = null;
     },

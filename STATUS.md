@@ -85,3 +85,9 @@ Mike ran the app on his iPhone: basemap OK, but no street colours, "Planning…"
 Fixed: streets only load once location is known and re-check coverage after each load (the first load was for downtown and never refreshed); walk circle = centre of the visible map, drag/pinch to move/resize, planning uses it; request timeouts with endpoint failover; stall watchdog; always-visible status pill with Retry/Cancel; Capacitor haptics (pin drop, route ready, turns, off-route, arrival); zoom sized for a 30-min walk.
 Validation: 116 tests; simulated live flow in Chromium with a mocked Overpass (located → one load → routes).
 Next priority from Mike: live location sharing between users (needs backend — decisions pending).
+
+### 2026-09-30 — Pack: live walk sharing (Supabase)
+Decisions (Mike): backend yes; Supabase; friends + friends-of-friends (strangers/redditors deferred for safety); paid Apple Developer account available; dogs are the only identity — no owner names.
+Completed: migration (profiles=dogs, friendships via one-time invite codes, walks with audience friends|fof, device tokens, RLS), notify-walk Edge Function (APNs, "🐕 Ricky is walking" / "Ricky's walk ended"), client (email-code sign-in, dog name, invites, pack list, share selector per walk, live position with 150 m start/finish privacy zones, friends' live dots, push registration), AppDelegate + entitlements for push. Setup: sniffari/docs/SOCIAL.md.
+Validation: 23 RLS/audience checks on a real Postgres 16 (supabase/tests/run.sh); 124 unit tests incl. APNs JWT signing; full pack flow in Chromium against a mocked Supabase (Luna's live dot, go live fof, insert/notify/end).
+Not verified: a real Supabase project and real APNs delivery (need Mike's setup).

@@ -9,6 +9,8 @@ import { PinCard } from './panels/PinCard';
 import { NavPanel } from './panels/NavPanel';
 import { StatusPill } from './components/StatusPill';
 import { haptic } from './haptics';
+import { useSocial } from '../social/store';
+import { PackWalksLayer } from './map/PackWalksLayer';
 
 export function App() {
   const sheetOpen = useStore((s) => s.sheetOpen);
@@ -23,6 +25,10 @@ export function App() {
   const nav = useStore((s) => s.nav);
 
   // Fixture URLs (?fixture=…) load straight away — handy for calibration and screenshots.
+  useEffect(() => {
+    void useSocial.getState().init();
+  }, []);
+
   // On live data, start where the walker is (asks for location permission once).
   useEffect(() => {
     const st = useStore.getState();
@@ -33,6 +39,7 @@ export function App() {
   return (
     <div className="app">
       <MapView />
+      <PackWalksLayer />
       <header className="topbar">
         <span className="brand">
           <BrandIcon />

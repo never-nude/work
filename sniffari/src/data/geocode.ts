@@ -80,3 +80,19 @@ export async function reverseGeocode(p: LatLon, signal?: AbortSignal): Promise<s
     return null;
   }
 }
+
+/** Coarse place name for sharing — neighbourhood and town only, never a street. */
+export async function reverseArea(p: LatLon): Promise<string | null> {
+  try {
+    await throttle();
+    const url = `https://nominatim.openstreetmap.org/reverse?${new URLSearchParams({ lat: String(p.lat), lon: String(p.lon), format: 'jsonv2', zoom: '14', addressdetails: '1' })}`;
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return null;
+    const a = ((await res.json()) as { address?: Record<string, string> }).address ?? {};
+    const hood = a.neighbourhood ?? a.suburb ?? a.quarter;
+    const town = a.city ?? a.town ?? a.village ?? a.hamlet;
+    return [hood, town].filter(Boolean).join(', ') || null;
+  } catch {
+    return null;
+  }
+}
