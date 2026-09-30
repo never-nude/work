@@ -56,6 +56,16 @@ export async function apnsJwt(key: CryptoKey, keyId: string, teamId: string, now
   return `${input}.${b64url(sig)}`;
 }
 
+/**
+ * Apps installed from Xcode get sandbox push tokens; TestFlight/App Store builds get production ones.
+ * Try production first and fall back to sandbox when Apple says the token isn't valid there.
+ */
+export const APNS_HOSTS = ['api.push.apple.com', 'api.sandbox.push.apple.com'] as const;
+
+export function shouldTryNextHost(status: number, reason: string | undefined): boolean {
+  return status === 400 && reason === 'BadDeviceToken';
+}
+
 /** Tokens Apple says are dead — delete them so we stop sending. */
 export function isDeadToken(status: number, reason: string | undefined): boolean {
   return status === 410 || reason === 'BadDeviceToken' || reason === 'Unregistered' || reason === 'DeviceTokenNotForTopic';

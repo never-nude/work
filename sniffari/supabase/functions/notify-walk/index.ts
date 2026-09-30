@@ -4,10 +4,9 @@
 //   supabase.functions.invoke('notify-walk', { body: { walkId, event: 'started' | 'ended' } })
 //
 // Secrets (supabase secrets set …): APNS_KEY (contents of the .p8), APNS_KEY_ID, APNS_TEAM_ID,
-// APNS_BUNDLE_ID (e.g. work.kushman.sniffari), APNS_SANDBOX=true for Xcode-installed builds
-// (TestFlight/App Store builds use production → unset it).
+// APNS_BUNDLE_ID (e.g. work.kushman.sniffari). Production and sandbox (Xcode-installed) tokens both work.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { apnsJwt, apnsPayload, importApnsKey, isDeadToken, walkMessage, type WalkEvent } from './lib.ts';
+import { APNS_HOSTS, apnsJwt, apnsPayload, importApnsKey, isDeadToken, shouldTryNextHost, walkMessage, type WalkEvent } from './lib.ts';
 
 const env = (k: string) => {
   const v = Deno.env.get(k);
@@ -46,29 +45,32 @@ Deno.serve(async (req) => {
     const msg = walkMessage(event, { dogName, durationMin: walk.duration_min, lengthM: walk.length_m, areaLabel: walk.area_label });
     const payload = JSON.stringify(apnsPayload(event, walkId, msg));
     const jwt = await apnsJwt(await importApnsKey(env('APNS_KEY')), env('APNS_KEY_ID'), env('APNS_TEAM_ID'));
-    const host = Deno.env.get('APNS_SANDBOX') === 'true' ? 'api.sandbox.push.apple.com' : 'api.push.apple.com';
 
     let sent = 0;
     const dead: string[] = [];
     await Promise.all(
       tokens.map(async ({ token }) => {
-        const r = await fetch(`https://${host}/3/device/${token}`, {
-          method: 'POST',
-          headers: {
-            authorization: `bearer ${jwt}`,
-            'apns-topic': env('APNS_BUNDLE_ID'),
-            'apns-push-type': 'alert',
-            'apns-priority': event === 'started' ? '10' : '5',
-            'apns-collapse-id': `walk-${walkId}`,
-          },
-          body: payload,
-        });
-        if (r.ok) sent++;
-        else {
-          const reason = ((await r.json().catch(() => ({}))) as { reason?: string }).reason;
-          if (isDeadToken(r.status, reason)) dead.push(token);
-          else console.warn('apns', r.status, reason);
+        let status = 0;
+        let reason: string | undefined;
+        for (const host of APNS_HOSTS) {
+          const r = await fetch(`https://${host}/3/device/${token}`, {
+            method: 'POST',
+            headers: {
+              authorization: `bearer ${jwt}`,
+              'apns-topic': env('APNS_BUNDLE_ID'),
+              'apns-push-type': 'alert',
+              'apns-priority': event === 'started' ? '10' : '5',
+              'apns-collapse-id': `walk-${walkId}`,
+            },
+            body: payload,
+          });
+          status = r.status;
+          reason = r.ok ? undefined : ((await r.json().catch(() => ({}))) as { reason?: string }).reason;
+          if (r.ok || !shouldTryNextHost(status, reason)) break;
         }
+        if (status === 200) sent++;
+        else if (isDeadToken(status, reason)) dead.push(token);
+        else console.warn('apns', status, reason);
       }),
     );
     if (dead.length) await admin.from('device_tokens').delete().in('token', dead);

@@ -1,5 +1,17 @@
 # Sniffari on iPhone
 
+## The short version
+
+```sh
+cd ~/sniffari-work/sniffari
+npm run ship    # latest code → tests → build → sign → upload to TestFlight
+npm run phone   # latest code → build → install straight onto the iPhone (USB, or Wi-Fi once paired)
+npm run pack    # Pack / live-sharing setup (Supabase + push) on its own
+```
+
+The first `npm run ship` asks for the few one-time things (icon file, App Store Connect app, Pack setup) and opens the
+right Apple pages; after that it just runs. Everything below is the manual detail behind it.
+
 The app is the same web app wrapped by Capacitor (`ios/`). You need a Mac with Xcode.
 
 ## Tonight: run it on your phone over USB (free Apple ID is enough)

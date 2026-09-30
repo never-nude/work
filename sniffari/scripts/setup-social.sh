@@ -95,11 +95,12 @@ else
   [ -n "$P8" ] || P8="$(ask 'Path to the .p8 file:')"
   KEYID="$(basename "$P8" .p8 | sed 's/AuthKey_//')"
   K2="$(ask "Key ID [$KEYID]:")"; KEYID="${K2:-$KEYID}"
-  TEAM="$(ask 'Team ID (10 characters):')"
+  TEAM="${APPLE_TEAM_ID:-}"
+  [ -n "$TEAM" ] || TEAM="$(ask 'Team ID (10 characters):')"
   BUNDLE="$(grep -o "appId: '[^']*'" capacitor.config.ts | cut -d"'" -f2)"
   supabase secrets set --project-ref "$REF" \
-    APNS_KEY="$(cat "$P8")" APNS_KEY_ID="$KEYID" APNS_TEAM_ID="$TEAM" APNS_BUNDLE_ID="$BUNDLE" APNS_SANDBOX=true >/dev/null
-  ok "APNs secrets set for $BUNDLE (sandbox — for builds installed from Xcode)"
+    APNS_KEY="$(cat "$P8")" APNS_KEY_ID="$KEYID" APNS_TEAM_ID="$TEAM" APNS_BUNDLE_ID="$BUNDLE" >/dev/null
+  ok "APNs secrets set for $BUNDLE (works for Xcode and TestFlight builds)"
 fi
 
 say "Deploying the notification sender"
@@ -107,9 +108,8 @@ supabase functions deploy notify-walk --project-ref "$REF" >/dev/null
 ok "notify-walk deployed"
 
 # ------------------------------------------------------------------ 3. Rebuild the app
+[ "${SKIP_REBUILD:-}" = 1 ] && exit 0
 say "Rebuilding the iPhone app"
 npm install --silent
 npm run -s ios:sync
 ok "done — in Xcode press ▶ Run, then open the sheet → Pack → sign in with your email"
-echo
-echo "  For TestFlight builds later: supabase secrets unset APNS_SANDBOX --project-ref $REF"

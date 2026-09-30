@@ -12,7 +12,7 @@ Privacy, enforced by the database (tested in `supabase/tests`):
 
 ## One-time setup
 
-**Fast way (Terminal):** `cd ~/sniffari-work/sniffari && git pull && bash scripts/setup-social.sh` — does everything below except creating the Apple push key, which it opens in your browser and walks you through.
+**Fast way (Terminal):** `cd ~/sniffari-work/sniffari && npm run pack` (or it runs automatically on your first `npm run ship`) — does everything below except creating the Apple push key, which it opens in your browser and walks you through.
 
 ### Manual steps (if you prefer)
 
