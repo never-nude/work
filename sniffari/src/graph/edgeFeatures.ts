@@ -3,6 +3,7 @@ import type { BaseGraph, EdgeBase, OsmData } from './buildGraph';
 import { wayCoords } from './buildGraph';
 import { median, samplePolyline, type Projection } from './geo';
 import type { ElevationAt } from '../data/elevation';
+import { describeUnnamedEdges } from './edgeNames';
 import {
   isMajorRoad,
   parseLanes,
@@ -290,5 +291,6 @@ export function attachFeatures(
     if (onProgress && i % 500 === 0) onProgress(i, total);
   }
   onProgress?.(total, total);
+  for (const [id, label] of describeUnnamedEdges(out, osm, base.projection)) out[id]!.name = label;
   return out;
 }

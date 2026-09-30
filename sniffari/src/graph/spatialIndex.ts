@@ -81,6 +81,18 @@ export class SegmentIndex {
     return this;
   }
 
+  /** Nearest segment's owner and distance within maxDist, or null. */
+  nearestOwner(x: number, y: number, maxDist: number): { ownerId: number; dist: number } | null {
+    if (!this.index) return null;
+    let best: { ownerId: number; dist: number } | null = null;
+    for (const i of this.index.search(x - maxDist, y - maxDist, x + maxDist, y + maxDist)) {
+      const s = this.segs[i]!;
+      const d = pointSegmentDist(x, y, s.ax, s.ay, s.bx, s.by);
+      if (d <= maxDist && (!best || d < best.dist)) best = { ownerId: s.ownerId, dist: d };
+    }
+    return best;
+  }
+
   /**
    * Exact distance to the nearest segment within maxDist (Infinity if none).
    * `exclude` skips segments belonging to a given owner (e.g. the road itself).

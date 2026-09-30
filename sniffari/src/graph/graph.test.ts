@@ -35,7 +35,7 @@ describe('buildGraph (synthetic fixture)', () => {
     // Oak Ave: nodes at x = -400,-300,-150,0,150,300; intersections only at -300 and 0 → 3 edges
     expect(byName('Oak Avenue')).toHaveLength(3);
     // Main St sidewalk joins Broadway and Cottage Pl at its two ends only
-    expect(byName('Main Street sidewalk')).toHaveLength(1);
+    expect(byName('Sidewalk · Main Street')).toHaveLength(1);
   });
   it('computes lengths in metres', () => {
     const e = one('Oak Avenue', (e) => mid(e).x < -300);
@@ -82,7 +82,7 @@ describe('edge features + scores (synthetic fixture)', () => {
     expect(west.features.treesPer100m).toBe(0);
   });
   it('Main St sidewalk is loud and crowded; Oak Ave is quiet', () => {
-    const sw = one('Main Street sidewalk');
+    const sw = one('Sidewalk · Main Street');
     expect(sw.features.distMajorRoadM).toBeLessThan(20);
     expect(sw.features.commercialPer100m).toBeGreaterThan(2);
     const oak = one('Oak Avenue', (e) => mid(e).x > 0);
@@ -121,5 +121,16 @@ describe('edge features + scores (synthetic fixture)', () => {
       ['Busy road with no sidewalk', 'Driveway', 'Highway — no walking', 'No dogs allowed', 'Private — no access', 'Under construction'].sort(),
     );
     for (const e of byName('Hamilton Avenue')) expect(q(e).excluded).toBe('Busy road with no sidewalk');
+  });
+});
+
+describe('describing unnamed paths', () => {
+  it('names sidewalks after their street and park paths after their park', async () => {
+    const { buildScoredGraphInputs } = await import('../routing/pipeline');
+    const g = buildScoredGraphInputs([data], meta.center, meta.radiusM);
+    const names = new Set(g.edges.map((e) => e.name));
+    expect(names).toContain('Sidewalk · Main Street');
+    expect(names).toContain('Path in Cottage Green');
+    expect([...names].some((n) => /unnamed/i.test(n ?? ''))).toBe(false);
   });
 });

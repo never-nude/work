@@ -127,7 +127,11 @@ export function MapView() {
   const markerRef = useRef<Marker | null>(null);
 
   const start = useStore((s) => s.start);
-  const radiusM = useStore((s) => s.radiusM);
+  const loadedArea = useStore((s) => s.loadedArea);
+  const me = useStore((s) => s.me);
+  const meMarkerRef = useRef<Marker | null>(null);
+  const pin = useStore((s) => s.pin);
+  const pinMarkerRef = useRef<Marker | null>(null);
   const heatmap = useStore((s) => s.heatmap);
   const selectedId = useStore((s) => s.selectedId);
   const routes = useStore((s) => s.routes);
@@ -145,17 +149,44 @@ export function MapView() {
       container: container.current,
       style: BASEMAP_STYLES[0]!,
       center: [s.lon, s.lat],
-      zoom: 14.5,
+      zoom: 15,
       attributionControl: { compact: true },
     });
     mapRef.current = map;
     map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+    const viewBounds = (): [number, number, number, number] => {
+      const b = map.getBounds();
+      return [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
+    };
     useStore.setState({
-      getViewBounds: () => {
-        const b = map.getBounds();
-        return [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
-      },
+      getViewBounds: viewBounds,
+      flyTo: (p, zoom) => map.flyTo({ center: [p.lon, p.lat], zoom: zoom ?? map.getZoom(), duration: 900 }),
     });
+    map.on('moveend', () => useStore.getState().onViewChanged(viewBounds()));
+
+    // Drop a pin: right-click / two-finger click on desktop, long-press on touch.
+    map.on('contextmenu', (e) => {
+      e.preventDefault();
+      useStore.getState().dropPin({ lat: e.lngLat.lat, lon: e.lngLat.lng });
+    });
+    let pressTimer: ReturnType<typeof setTimeout> | undefined;
+    let pressStart: { x: number; y: number } | null = null;
+    map.on('touchstart', (e) => {
+      if (e.originalEvent.touches.length !== 1) return clearTimeout(pressTimer);
+      pressStart = { x: e.point.x, y: e.point.y };
+      const at = e.lngLat;
+      pressTimer = setTimeout(() => {
+        navigator.vibrate?.(15);
+        useStore.getState().dropPin({ lat: at.lat, lon: at.lng });
+      }, 550);
+    });
+    map.on('touchmove', (e) => {
+      if (pressStart && Math.hypot(e.point.x - pressStart.x, e.point.y - pressStart.y) > 8) clearTimeout(pressTimer);
+    });
+    map.on('touchend', () => clearTimeout(pressTimer));
+    map.on('touchcancel', () => clearTimeout(pressTimer));
+    map.on('movestart', () => clearTimeout(pressTimer));
+    map.once('load', () => useStore.getState().onViewChanged(viewBounds()));
 
     const fallback = () => {
       styleIdx++;
@@ -177,6 +208,10 @@ export function MapView() {
     // One generous hit box instead of per-layer handlers: thin lines are hard to tap one-handed.
     map.on('click', (e) => {
       const st = useStore.getState();
+      if (st.pin) {
+        st.clearPin();
+        return;
+      }
       if (st.pickingEnd) {
         st.setEndPoint({ lat: e.lngLat.lat, lon: e.lngLat.lng, label: 'Chosen end point' });
         return;
@@ -211,7 +246,9 @@ export function MapView() {
       map.remove();
       mapRef.current = null;
       endMarkerRef.current = null;
-      useStore.setState({ getViewBounds: null });
+      meMarkerRef.current = null;
+      pinMarkerRef.current = null;
+      useStore.setState({ getViewBounds: null, flyTo: null });
       markerRef.current = null; // StrictMode remounts: don't keep a marker bound to the removed map
     };
   }, []);
@@ -220,7 +257,9 @@ export function MapView() {
     const s = useStore.getState();
     (map.getSource('edges') as GeoJSONSource | undefined)?.setData(s.heatmap?.edges ?? EMPTY);
     (map.getSource('crossings') as GeoJSONSource | undefined)?.setData(s.heatmap?.crossings ?? EMPTY);
-    (map.getSource('radius') as GeoJSONSource | undefined)?.setData(radiusCircle(s.start.lat, s.start.lon, s.radiusM));
+    // The circle shows the area whose streets are loaded — it follows the view as you pan and zoom.
+    const a = s.loadedArea;
+    (map.getSource('radius') as GeoJSONSource | undefined)?.setData(a ? radiusCircle(a.center.lat, a.center.lon, a.radiusM) : EMPTY);
     if (map.getLayer('edges-selected')) map.setFilter('edges-selected', ['==', ['get', 'id'], s.selectedId ?? -2]);
     (map.getSource('routes') as GeoJSONSource | undefined)?.setData({
       type: 'FeatureCollection',
@@ -240,7 +279,34 @@ export function MapView() {
   useEffect(() => {
     const map = mapRef.current;
     if (map?.isStyleLoaded()) syncData(map);
-  }, [heatmap, radiusM, start, selectedId, routes, routeIndex]);
+  }, [heatmap, loadedArea, start, selectedId, routes, routeIndex]);
+
+  // Dropped pin.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!pin) {
+      pinMarkerRef.current?.remove();
+      pinMarkerRef.current = null;
+      return;
+    }
+    if (!pinMarkerRef.current) {
+      const el = document.createElement('div');
+      el.className = 'drop-pin';
+      pinMarkerRef.current = new Marker({ element: el, anchor: 'bottom' }).setLngLat([pin.lon, pin.lat]).addTo(map);
+    } else pinMarkerRef.current.setLngLat([pin.lon, pin.lat]);
+  }, [pin]);
+
+  // Live "you are here" dot.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !me) return;
+    if (!meMarkerRef.current) {
+      const el = document.createElement('div');
+      el.className = 'me-marker';
+      meMarkerRef.current = new Marker({ element: el }).setLngLat([me.lon, me.lat]).addTo(map);
+    } else meMarkerRef.current.setLngLat([me.lon, me.lat]);
+  }, [me]);
 
   // Frame the selected route (leave room for the sheet on phones / panel on desktop).
   useEffect(() => {
@@ -299,7 +365,6 @@ export function MapView() {
     } else {
       markerRef.current.setLngLat([start.lon, start.lat]);
     }
-    if (!useStore.getState().routes.length) map.easeTo({ center: [start.lon, start.lat], duration: 600 });
   }, [start]);
 
   return <div ref={container} className="map" />;

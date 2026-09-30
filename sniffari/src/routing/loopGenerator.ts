@@ -1,5 +1,5 @@
 import type { EdgeScore, Graph, LatLon, Profile, Route, ScoringContext } from '../types';
-import { makeProjection } from '../graph/geo';
+import { haversineM, makeProjection } from '../graph/geo';
 import { PointIndex } from '../graph/spatialIndex';
 import { overlap, scoreRoute } from '../scoring/scoreRoute';
 import { astar, makeRoutingGraph, type RoutingGraph, type Step } from './astar';
@@ -36,9 +36,22 @@ function inBounds(p: LatLon, b: Bounds): boolean {
   return p.lat >= b[0] && p.lat <= b[2] && p.lon >= b[1] && p.lon <= b[3];
 }
 
-/** Grow bounds to include a point (the walker may be just outside their own view). */
-function include(b: Bounds, p: LatLon, padDeg = 0.0015): Bounds {
-  return [Math.min(b[0], p.lat - padDeg), Math.min(b[1], p.lon - padDeg), Math.max(b[2], p.lat + padDeg), Math.max(b[3], p.lon + padDeg)];
+/**
+ * The area routes may use: the view grown to include start (and finish), then
+ * padded by 20% of its size (at least ~250 m) so paths between points near the
+ * edge — or a start just off-screen — still have streets to use.
+ */
+export function planningBounds(view: Bounds, pts: LatLon[]): Bounds {
+  let [s, w, n, e] = view;
+  for (const p of pts) {
+    s = Math.min(s, p.lat);
+    n = Math.max(n, p.lat);
+    w = Math.min(w, p.lon);
+    e = Math.max(e, p.lon);
+  }
+  const padLat = Math.max((n - s) * 0.2, 0.00225);
+  const padLon = Math.max((e - w) * 0.2, 0.003);
+  return [s - padLat, w - padLon, n + padLat, e + padLon];
 }
 
 export class Planner {
@@ -55,10 +68,7 @@ export class Planner {
 
   plan(req: PlanRequest, onProgress?: (done: number, total: number) => void): PlanResult {
     let bounds = req.bounds;
-    if (bounds) {
-      bounds = include(bounds, req.start);
-      if (req.end) bounds = include(bounds, req.end);
-    }
+    if (bounds) bounds = planningBounds(bounds, req.end ? [req.start, req.end] : [req.start]);
     const b = bounds;
     const allowEdge = b
       ? (id: number) => {
@@ -77,13 +87,13 @@ export class Planner {
   }
 
   /** Nearest node with at least one routable edge. */
-  private snap(rg: RoutingGraph, p: LatLon): number | null {
+  private snap(rg: RoutingGraph, p: LatLon, exclude?: number): number | null {
     const proj = makeProjection(this.graph.center);
     const [x, y] = proj.toXY(p.lat, p.lon);
     for (const r of [60, 150, 400]) {
       const ids = this.nodeIndex
         .within(x, y, r)
-        .filter((id) => this.graph.nodes[id]!.edgeIds.some((e) => rg.cost[e] !== Infinity))
+        .filter((id) => id !== exclude && this.graph.nodes[id]!.edgeIds.some((e) => rg.cost[e] !== Infinity))
         .sort((a, c) => {
           const na = this.graph.nodes[a]!, nc = this.graph.nodes[c]!;
           return Math.hypot(na.x - x, na.y - y) - Math.hypot(nc.x - x, nc.y - y);
@@ -112,7 +122,11 @@ export class Planner {
 
   /** Best path to a chosen end point, plus alternatives found by penalising the previous best. */
   private oneWay(rg: RoutingGraph, startNode: number, req: PlanRequest): PlanResult {
-    const endNode = this.snap(rg, req.end!);
+    if (haversineM(req.start, req.end!) < 40) {
+      return { routes: [], candidates: 0, message: "That finish is right where you're starting — pick a spot further away, or choose Back to start." };
+    }
+    // Never snap the finish onto the start corner (a zero-length "route").
+    const endNode = this.snap(rg, req.end!, startNode);
     if (endNode === null) return { routes: [], candidates: 0, message: 'No walkable street near that end point in this view.' };
     const mult = new Map<number, number>();
     const cands: Route[] = [];

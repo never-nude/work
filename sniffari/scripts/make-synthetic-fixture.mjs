@@ -79,7 +79,7 @@ way([[-400, 200], [-300, 200], [-150, 200], [0, 200], [150, 200], [300, 200]], {
 way([[-400, -200], [-300, -200], [-150, -200], [0, -200], [150, -200], [300, -200], [400, -200]], {
   highway: 'residential', name: 'Elm Street',
 });
-way([[-300, -12], [-150, -12], [0, -12]], { highway: 'footway', footway: 'sidewalk', name: 'Main Street sidewalk' });
+way([[-300, -12], [-150, -12], [0, -12]], { highway: 'footway', footway: 'sidewalk' } /* unnamed, like most of OSM */);
 
 // North–south streets
 way([[-300, -300], [-300, -200], [-300, -12], [-300, 0], [-300, 200], [-300, 300], [-300, 400]], {
@@ -95,7 +95,7 @@ way([[300, -300], [300, -200], [300, 0], [300, 200], [300, 400]], {
 // Park + its paths
 area([[-260, 220], [-40, 220], [-40, 380], [-260, 380]], { leisure: 'park', name: 'Cottage Green' });
 way([[-300, 300], [-150, 300], [0, 300]], { highway: 'footway', surface: 'gravel', name: 'Green Walk' });
-way([[-150, 220], [-150, 300], [-150, 380]], { highway: 'path', dog: 'no', name: 'Garden Path' });
+way([[-150, 220], [-150, 300], [-150, 380]], { highway: 'path', dog: 'no' } /* unnamed */);
 poi(-100, 305, { amenity: 'waste_basket' });
 poi(-110, 305, { vending: 'excrement_bags', amenity: 'vending_machine' });
 poi(-120, 296, { amenity: 'bench' });

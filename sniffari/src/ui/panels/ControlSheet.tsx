@@ -1,5 +1,3 @@
-import { useState } from 'react';
-import { geocode, type GeocodeResult } from '../../data/geocode';
 import { PROFILE_ORDER, PROFILES } from '../../scoring/profiles';
 import { FIXTURES } from '../../state/fixtures';
 import { TIME_PRESETS, useStore, type TimePreset } from '../../state/store';
@@ -7,55 +5,9 @@ import { Legend } from '../components/Legend';
 import { RoutesPanel } from './RoutesPanel';
 import { WalkPanel } from './WalkPanel';
 
-const RADII = [
-  { m: 805, label: '½ mi' },
-  { m: 1609, label: '1 mi' },
-  { m: 2414, label: '1½ mi' },
-];
-
 export function ControlSheet() {
   const s = useStore();
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<GeocodeResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-
-  const busy = s.status === 'loading';
   const sourceValue = s.source.kind === 'live' ? 'live' : `fixture:${s.source.name}`;
-
-  async function search(e: React.FormEvent) {
-    e.preventDefault();
-    if (!query.trim()) return;
-    setSearching(true);
-    setSearchError(null);
-    try {
-      const r = await geocode(query.trim());
-      setResults(r);
-      if (r.length === 0) setSearchError('No matches');
-    } catch (err) {
-      setSearchError(err instanceof Error ? err.message : 'Search failed');
-    } finally {
-      setSearching(false);
-    }
-  }
-
-  function pick(r: GeocodeResult) {
-    s.setSource({ kind: 'live' });
-    s.setStart({ lat: r.lat, lon: r.lon, label: r.label });
-    setResults([]);
-    setQuery('');
-  }
-
-  function locate() {
-    navigator.geolocation?.getCurrentPosition(
-      (pos) => {
-        s.setSource({ kind: 'live' });
-        s.setStart({ lat: pos.coords.latitude, lon: pos.coords.longitude, label: 'My location' });
-      },
-      (err) => setSearchError(err.message),
-      { enableHighAccuracy: true, timeout: 10_000 },
-    );
-  }
 
   const dog = (
     <div className="field">
@@ -108,56 +60,12 @@ export function ControlSheet() {
       {when}
 
       <details className="more">
-        <summary>Street-quality map &amp; start pin</summary>
+        <summary>Street-quality map legend &amp; data</summary>
         <div className="sheet__body more__body">
-          <form className="search" onSubmit={search}>
-            <input
-              className="input"
-              type="search"
-              inputMode="search"
-              placeholder="Search an address"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Search an address"
-            />
-            <button className="btn btn--icon" type="button" onClick={locate} aria-label="Use my location" title="Use my location">
-              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
-                <circle cx="12" cy="12" r="4" fill="currentColor" />
-                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                <circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" strokeWidth="2" />
-              </svg>
-            </button>
-          </form>
-          {searching && <p className="hint">Searching…</p>}
-          {searchError && <p className="hint hint--error">{searchError}</p>}
-          {results.length > 0 && (
-            <ul className="results">
-              {results.map((r) => (
-                <li key={`${r.lat},${r.lon}`}>
-                  <button className="results__item" onClick={() => pick(r)}>
-                    {r.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="start-row">
-            <span className="start-row__label">Start</span>
-            <span className="start-row__value">{s.start.label}</span>
-          </div>
-          <div className="field">
-            <span className="field__label">Area</span>
-            <div className="chips">
-              {RADII.map((r) => (
-                <button key={r.m} className={`chip${Math.abs(s.radiusM - r.m) < 5 ? ' chip--on' : ''}`} onClick={() => s.setRadius(r.m)}>
-                  {r.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <button className="btn" disabled={busy} onClick={() => s.load()}>
-            {busy ? 'Working…' : s.heatmap ? 'Reload streets around start' : 'Score streets around start'}
-          </button>
+          <p className="hint">
+            Street scores load automatically for the area on screen.{' '}
+            {s.status === 'loading' ? 'Loading…' : s.heatmap ? `Showing ${s.heatmap.stats.edges.toLocaleString()} street segments.` : ''}
+          </p>
           <Legend />
           {s.heatmap && (
             <dl className="stats">

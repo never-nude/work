@@ -21,7 +21,7 @@ export function EdgeInspector() {
   async function copyStub() {
     if (!d) return;
     const stub = {
-      street: `${d.name ?? d.tags.highway ?? 'Unnamed'} (way ${d.wayId})`,
+      street: `${d.name ?? friendlyType(f.highway)} (way ${d.wayId})`,
       wayIds: [d.wayId],
       at: { lat: +d.mid.lat.toFixed(6), lon: +d.mid.lon.toFixed(6) },
       rating: null,
@@ -40,7 +40,7 @@ export function EdgeInspector() {
           {d.score.excluded ? '—' : Math.round(q * 100)}
         </div>
         <div className="inspector__title">
-          <h2>{d.name ?? `Unnamed ${f.highway}`}</h2>
+          <h2>{d.name ?? friendlyType(f.highway)}</h2>
           <p className="hint">
             {f.highway} · {Math.round(d.lengthM)} m · {PROFILES[profileId].name}
           </p>
@@ -126,4 +126,12 @@ export function EdgeInspector() {
       )}
     </section>
   );
+}
+
+function friendlyType(highway: string): string {
+  const map: Record<string, string> = {
+    footway: 'Footpath', path: 'Path', residential: 'Residential street', service: 'Service road',
+    tertiary: 'Local road', secondary: 'Main road', primary: 'Major road', steps: 'Steps', cycleway: 'Bike path',
+  };
+  return map[highway] ?? highway.charAt(0).toUpperCase() + highway.slice(1).replace(/_/g, ' ');
 }

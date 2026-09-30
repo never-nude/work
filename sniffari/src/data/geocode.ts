@@ -51,3 +51,32 @@ export async function geocode(q: string, signal?: AbortSignal): Promise<GeocodeR
   }
   return photon(q, signal);
 }
+
+/** Approximate street address for a point: Nominatim reverse, Photon reverse as fallback. */
+export async function reverseGeocode(p: LatLon, signal?: AbortSignal): Promise<string | null> {
+  try {
+    await throttle();
+    const url = `https://nominatim.openstreetmap.org/reverse?${new URLSearchParams({ lat: String(p.lat), lon: String(p.lon), format: 'jsonv2', zoom: '18', addressdetails: '1' })}`;
+    const res = await fetch(url, { signal, headers: { Accept: 'application/json' } });
+    if (res.ok) {
+      const j = (await res.json()) as { display_name?: string; address?: Record<string, string> };
+      const a = j.address ?? {};
+      const street = [a.house_number, a.road ?? a.pedestrian ?? a.footway ?? a.path].filter(Boolean).join(' ');
+      const town = a.city ?? a.town ?? a.village ?? a.suburb;
+      const short = [street || a.park || a.amenity, town].filter(Boolean).join(', ');
+      if (short) return short;
+      if (j.display_name) return j.display_name.split(',').slice(0, 2).join(',');
+    }
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') throw e;
+  }
+  try {
+    const res = await fetch(`https://photon.komoot.io/reverse?lat=${p.lat}&lon=${p.lon}`, { signal });
+    const j = (await res.json()) as { features: { properties: Record<string, string | undefined> }[] };
+    const pr = j.features[0]?.properties;
+    if (!pr) return null;
+    return [[pr.housenumber, pr.street].filter(Boolean).join(' ') || pr.name, pr.city].filter(Boolean).join(', ');
+  } catch {
+    return null;
+  }
+}

@@ -52,6 +52,7 @@ select {
   position: fixed;
   inset: 0;
   overflow: hidden;
+  overflow: clip; /* no programmatic scrolling of the app shell either */
 }
 
 .map {
@@ -889,4 +890,201 @@ select.input {
 
 .more__body {
   padding-top: 12px;
+}
+
+/* ------------------------------------------------------------ map buttons, search, pins, picker */
+
+.mapbtns {
+  position: absolute;
+  top: calc(96px + var(--safe-t));
+  right: 10px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mapbtn {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(22, 19, 28, 0.92);
+  color: var(--accent-strong);
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.mapbtn:disabled {
+  opacity: 0.7;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.searchpanel {
+  position: absolute;
+  top: calc(80px + var(--safe-t));
+  left: 12px;
+  right: 70px;
+  z-index: 5;
+  padding: 10px;
+  border-radius: 18px;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+@media (min-width: 820px) {
+  .searchpanel {
+    right: auto;
+    width: 420px;
+  }
+  .mapbtns {
+    right: 412px;
+  }
+}
+
+.searchbox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.searchbox .results {
+  margin: 0;
+}
+
+.toast {
+  position: absolute;
+  top: calc(84px + var(--safe-t));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(22, 19, 28, 0.92);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
+  max-width: calc(100vw - 150px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.me-marker {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4da3ff;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 8px rgba(77, 163, 255, 0.25);
+}
+
+.drop-pin {
+  width: 30px;
+  height: 40px;
+  background: var(--accent);
+  clip-path: path('M15 40 C15 40 0 23 0 15 A15 15 0 1 1 30 15 C30 23 15 40 15 40 Z');
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5));
+}
+
+.crosshair {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  z-index: 2;
+}
+
+.crosshair span {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--text);
+  box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 2px var(--ink);
+  position: relative;
+}
+
+.crosshair span::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.picker,
+.pincard {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(16px + var(--safe-b));
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--ink);
+  border: 1px solid var(--accent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+
+@media (min-width: 820px) {
+  .picker,
+  .pincard {
+    left: 50%;
+    right: auto;
+    width: 440px;
+    transform: translateX(-50%);
+  }
+}
+
+.picker__title,
+.pincard__addr {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.picker__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.picker__actions .btn--primary {
+  min-height: 52px;
+  font-size: 17px;
+}
+
+.pincard__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.finish-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }

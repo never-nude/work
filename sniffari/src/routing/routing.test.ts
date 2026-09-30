@@ -75,7 +75,7 @@ describe('loop planner', () => {
     const b: Bounds = [at(0, 50).lat, at(-320, 0).lon, at(0, 420).lat, at(20, 0).lon];
     const inView = planner.plan({ ...base, start, targetM: 1000, bounds: b });
     expect(inView.routes.length).toBeGreaterThan(0);
-    const pad = 0.0016;
+    const pad = Math.max((b[2] - b[0]) * 0.2, 0.00225) + 0.0001;
     for (const r of inView.routes)
       for (const [lon, lat] of r.coords) {
         expect(lat).toBeGreaterThanOrEqual(b[0] - pad);
@@ -113,5 +113,25 @@ describe('crossing detection', () => {
     const across = astar(rg, nodeAt(0, -200), nodeAt(0, 200))!;
     const r = planner['build'](across.steps, 't2', { ...base, start: at(0, 0), targetM: 0 }, null);
     expect(r.crossings.filter((k) => k === 'signals').length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('planning area', () => {
+  it('reaches a start outside a small zoomed-in view', () => {
+    // View is a small box around the finish; the start is well outside it.
+    const b: Bounds = [at(0, 250).lat, at(-320, 0).lon, at(0, 350).lat, at(-200, 0).lon];
+    const res = planner.plan({ ...base, start: at(0, -200), end: at(-300, 300), targetM: 0, bounds: b });
+    expect(res.routes.length).toBeGreaterThan(0);
+  });
+});
+
+describe('finish close to start', () => {
+  it('still routes when the finish snaps to the start corner', () => {
+    const res = planner.plan({ ...base, start: at(0, 0), end: at(-74, 0), targetM: 0 });
+    expect(res.routes.length).toBeGreaterThan(0);
+  });
+  it('explains a finish on top of the start', () => {
+    const res = planner.plan({ ...base, start: at(0, 0), end: at(10, 5), targetM: 0 });
+    expect(res.message).toMatch(/right where you're starting/);
   });
 });

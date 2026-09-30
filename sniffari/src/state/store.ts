@@ -3,6 +3,7 @@ import type { EdgeDetail, DataSource, HeatmapPayload, Stage } from '../routing/p
 import type { LatLon, ProfileId, Route, ScoringContext } from '../types';
 import type { Bounds, PlanRequest } from '../routing/loopGenerator';
 import { haversineM } from '../graph/geo';
+import { reverseGeocode } from '../data/geocode';
 import { FIXTURES, HOME_FIXTURE } from './fixtures';
 import { RoutingWorker } from './workerClient';
 
@@ -80,6 +81,18 @@ interface State {
   routeIndex: number;
   /** Registered by the map: current view as [south, west, north, east]. */
   getViewBounds: (() => Bounds) | null;
+  /** Registered by the map: move the camera. */
+  flyTo: ((p: LatLon, zoom?: number) => void) | null;
+  /** Live GPS position while the app is open (null until permission is granted). */
+  me: LatLon | null;
+  /** Circle covering the current map view; null when zoomed out too far to plan. */
+  viewArea: Area | null;
+  viewTooBig: boolean;
+  locating: boolean;
+  /** 'gps' = walks start where you are; 'pin' = from a chosen address or dropped pin. */
+  startMode: 'gps' | 'pin';
+  /** Pin dropped by long-press / right-click, with its looked-up address. */
+  pin: (LatLon & { address: string | null; resolving: boolean }) | null;
 
   setStart(p: Place): void;
   setRadius(m: number): void;
@@ -95,6 +108,14 @@ interface State {
   setPace(p: PaceId): void;
   setEndMode(m: 'loop' | 'elsewhere'): void;
   setEndPoint(p: Place | null): void;
+  startPicking(): void;
+  onViewChanged(b: Bounds): void;
+  locateMe(): Promise<void>;
+  goTo(p: Place): void;
+  dropPin(p: LatLon): void;
+  clearPin(): void;
+  pinAsStart(): void;
+  pinAsFinish(): void;
   optimize(): Promise<void>;
   selectRoute(i: number): void;
   clearRoutes(): void;
@@ -149,9 +170,25 @@ let planRequest = -1;
 let pendingPlan: PlanRequest | null = null;
 let lastPlan: PlanRequest | null = null;
 
+/** Rough position from the network when GPS is off or denied (city-level accuracy). */
+async function ipPosition(): Promise<LatLon | null> {
+  try {
+    const r = await fetch('https://get.geojs.io/v1/ip/geo.json');
+    const j = (await r.json()) as { latitude?: string; longitude?: string };
+    const lat = Number(j.latitude), lon = Number(j.longitude);
+    return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+  } catch {
+    return null;
+  }
+}
+
+let watchId: number | null = null;
+let viewTimer: ReturnType<typeof setTimeout> | undefined;
+
 export const useStore = create<State>((set, get) => {
   const sendPlan = (plan: PlanRequest) => {
     lastPlan = plan;
+    if (import.meta.env.DEV) console.debug('plan', JSON.stringify(plan));
     set({ planning: true, planMessage: null });
     planRequest = worker.send({ type: 'plan', plan });
   };
@@ -221,13 +258,23 @@ export const useStore = create<State>((set, get) => {
     routes: [],
     routeIndex: 0,
     getViewBounds: null,
+    flyTo: null,
+    me: null,
+    viewArea: null,
+    viewTooBig: false,
+    locating: false,
+    startMode: 'gps',
+    pin: null,
 
     setStart: (start) => set({ start }),
     setRadius: (radiusM) => set({ radiusM }),
     setSource: (source) => {
       if (source.kind === 'fixture') {
         const meta = FIXTURES.find((f) => f.name === source.name);
-        if (meta) set({ start: { ...meta.center, label: meta.label }, radiusM: meta.radiusM });
+        if (meta) {
+          set({ start: { ...meta.center, label: meta.label }, radiusM: meta.radiusM });
+          get().flyTo?.(meta.center, 14.5);
+        }
       }
       set({ source, loadedArea: null });
     },
@@ -264,7 +311,84 @@ export const useStore = create<State>((set, get) => {
 
     setMinutes: (minutes) => set({ minutes }),
     setPace: (pace) => set({ pace }),
-    setEndMode: (endMode) => set({ endMode, ...(endMode === 'loop' ? { endPoint: null, pickingEnd: false } : {}) }),
+    setEndMode: (endMode) => {
+      set({ endMode, ...(endMode === 'loop' ? { endPoint: null, pickingEnd: false } : {}) });
+      // Choosing "somewhere else" goes straight to picking the finish.
+      if (endMode === 'elsewhere' && !get().endPoint) get().startPicking();
+    },
+    startPicking: () => set({ pickingEnd: true, sheetOpen: false, selected: null, selectedId: null, planMessage: null }),
+
+    onViewChanged: (b) => {
+      const area = areaCovering(b, []);
+      const tooBig = area.radiusM > MAX_PLAN_RADIUS_M;
+      set({ viewArea: tooBig ? null : area, viewTooBig: tooBig });
+      const s = get();
+      // Street scores follow the view (live data only; fixtures are a fixed area).
+      if (tooBig || s.source.kind !== 'live' || s.routes.length || s.status === 'loading') return;
+      if (s.loadedArea && covers(s.loadedArea, area)) return;
+      clearTimeout(viewTimer);
+      viewTimer = setTimeout(() => {
+        const now = get();
+        if (now.status === 'loading' || now.routes.length || !now.viewArea) return;
+        // Load a bit beyond the view so small pans don't refetch.
+        now.load({ center: now.viewArea.center, radiusM: Math.max(600, now.viewArea.radiusM * 1.3) });
+      }, 700);
+    },
+
+    locateMe: async () => {
+      set({ locating: true, planMessage: null });
+      let here = await currentPosition();
+      let label = 'My location';
+      if (here && watchId === null && 'geolocation' in navigator) {
+        watchId = navigator.geolocation.watchPosition(
+          (p) => set({ me: { lat: p.coords.latitude, lon: p.coords.longitude } }),
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 5000 },
+        );
+      }
+      if (!here) {
+        here = await ipPosition();
+        label = 'Approximate location';
+        if (here) set({ planMessage: "GPS unavailable — using your network's approximate location. Allow location access for accuracy." });
+      }
+      set({ locating: false });
+      if (!here) {
+        set({ planMessage: 'Could not find your location. Search an address instead.' });
+        return;
+      }
+      if (label === 'My location') set({ me: here });
+      get().goTo({ ...here, label });
+      set({ startMode: 'gps' });
+    },
+
+    dropPin: (p) => {
+      set({ pin: { ...p, address: null, resolving: true }, selected: null, selectedId: null });
+      void reverseGeocode(p).then((address) => {
+        const cur = get().pin;
+        if (cur && cur.lat === p.lat && cur.lon === p.lon) set({ pin: { ...cur, address, resolving: false } });
+      });
+    },
+    clearPin: () => set({ pin: null }),
+    pinAsStart: () => {
+      const pin = get().pin;
+      if (!pin) return;
+      // An explicit start overrides live GPS for planning until "locate me" is used again.
+      set({ start: { lat: pin.lat, lon: pin.lon, label: pin.address ?? 'Dropped pin' }, startMode: 'pin', pin: null, planMessage: 'Walks will start from the pin. Tap the locate button to go back to your GPS position.' });
+    },
+    pinAsFinish: () => {
+      const pin = get().pin;
+      if (!pin) return;
+      set({ endMode: 'elsewhere', pin: null });
+      get().setEndPoint({ lat: pin.lat, lon: pin.lon, label: pin.address ?? 'Dropped pin' });
+    },
+
+    goTo: (p) => {
+      const s = get();
+      if (s.source.kind !== 'live') set({ source: { kind: 'live' }, loadedArea: null });
+      set({ start: p, startMode: 'pin' });
+      s.flyTo?.(p, 15.5);
+    },
+
     setEndPoint: (endPoint) => {
       set({ endPoint, pickingEnd: false });
       if (endPoint) void get().optimize();
@@ -273,7 +397,7 @@ export const useStore = create<State>((set, get) => {
     optimize: async () => {
       const s = get();
       if (s.endMode === 'elsewhere' && !s.endPoint) {
-        set({ pickingEnd: true, planMessage: 'Tap the map where you want to finish.', sheetOpen: false, selected: null, selectedId: null });
+        get().startPicking();
         return;
       }
       set({ planning: true, planMessage: 'Finding you…', error: null });
@@ -281,7 +405,12 @@ export const useStore = create<State>((set, get) => {
       // The walker is the start. Fall back to the start pin if location is unavailable.
       let start: Place = s.start;
       let located = false;
-      if (s.source.kind === 'live') {
+      if (s.startMode === 'pin' || s.source.kind !== 'live') {
+        // explicit start: keep s.start
+      } else if (s.me) {
+        start = { ...s.me, label: 'My location' };
+        located = true;
+      } else {
         const here = await currentPosition();
         if (here) {
           start = { ...here, label: 'My location' };
@@ -306,7 +435,7 @@ export const useStore = create<State>((set, get) => {
         tolerance: 0.15,
         bounds,
       };
-      set({ planMessage: located || s.source.kind !== 'live' ? null : 'Location unavailable — starting from the pin.' });
+      set({ planMessage: located || s.source.kind !== 'live' || s.startMode === 'pin' ? null : 'Location unavailable — starting from the pin.' });
 
       const loaded = get().loadedArea;
       const haveStreets = get().heatmap && (s.source.kind === 'fixture' || (loaded && covers(loaded, area)));
@@ -323,3 +452,6 @@ export const useStore = create<State>((set, get) => {
     },
   };
 });
+
+// Dev-only handle for debugging in the browser console.
+if (import.meta.env.DEV) (globalThis as unknown as { sniffari: typeof useStore }).sniffari = useStore;

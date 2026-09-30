@@ -33,13 +33,21 @@ export function WalkPanel() {
           </button>
         </div>
         {s.endMode === 'elsewhere' && (
-          <p className="hint">{s.endPoint ? 'End point set — tap Optimize to re-plan, or tap the map again to move it.' : "You'll tap the map to choose where to finish."}</p>
+          <div className="finish-row">
+            <span className="hint">{s.endPoint ? `Finish: ${s.endPoint.label}` : 'No finish chosen yet'}</span>
+            <button className="btn" onClick={s.startPicking}>
+              {s.endPoint ? 'Change' : 'Choose finish'}
+            </button>
+          </div>
         )}
       </div>
       <button className="btn btn--primary" disabled={s.planning} onClick={() => void s.optimize()}>
         {s.planning ? 'Planning…' : 'Optimize route in this view'}
       </button>
-      <p className="hint">Starts from your location and stays inside what's on screen — zoom the map to the area you want to walk.</p>
+      <p className="hint">
+        Starting from <strong>{s.startMode === 'gps' && s.source.kind === 'live' ? 'your location' : s.start.label}</strong>. Stays inside
+        what's on screen. Long-press or right-click the map to drop a pin.
+      </p>
     </section>
   );
 }
