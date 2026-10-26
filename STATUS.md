@@ -34,6 +34,15 @@ Neither computer's checkout, uncommitted changes, unpushed commits, local paths,
 3. Record discovered unfinished work, its branch, actual validation, and next step here. Reconcile it with remote history before implementation.
 4. At task completion, update this handoff and publish it through the existing repository workflow when authorized.
 
+## 2026-10-26 — Loopsmith (macOS GIF maker)
+
+Task / owner / branch: build a simple native macOS GIF maker / Claude Code cloud session / `claude/relaxed-ramanujan-oamxve`.
+Completed: new `loopsmith/` Swift package (SwiftUI, macOS 15+). Drag-and-drop or open a video, ScreenCaptureKit display/window recording, trim range bar, width/fps/speed/boomerang settings, ImageIO GIF export, `build.sh` that wraps the binary in a signed `.app`. Application site files unchanged.
+Validation actually performed: none. The cloud container has no Swift toolchain, so the package has not been compiled or run. Expect a first-build pass on a Mac to shake out compiler errors.
+Open issues / blockers: unverified build; GIF palette is ImageIO's per-frame quantizer (larger files than ffmpeg palettegen); no app icon.
+Next step: on a Mac, `cd loopsmith && ./build.sh && open build/Loopsmith.app`, fix any compile errors, test drop → trim → export and a screen recording, then record results here.
+Delivery (local, pushed, merged, deployment verified): pushed to the branch above with a draft PR; not merged.
+
 ## Future handoff fields
 
 Task / owner / branch:
