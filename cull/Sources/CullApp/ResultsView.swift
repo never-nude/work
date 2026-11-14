@@ -8,10 +8,11 @@ struct Checkbox: View {
 
     var body: some View {
         Button(action: action) {
+            // Palette rendering: a white tick on a solid terracotta square, or a quiet outline when off.
             Image(systemName: symbol)
-                .font(.system(size: 16))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(state == .off ? Color.secondary.opacity(0.7) : Theme.accent)
+                .font(.system(size: 16, weight: .medium))
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(state == .off ? Color.secondary.opacity(0.55) : Color.white, Theme.accent)
                 .frame(width: 22, height: 22)
                 .contentShape(Rectangle())
         }
@@ -49,6 +50,7 @@ struct ResultsView: View {
                 detail: "No caches, stale builds or leftovers big enough to bother with."
             )
         } else {
+            ScrollViewReader { scroller in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                     if let summary = model.lastSummary {
@@ -78,13 +80,22 @@ struct ResultsView: View {
                             } header: {
                                 TierHeader(tier: tier, total: categories.reduce(0) { $0 + $1.totalBytes })
                             }
+                            .id(tier.rawValue)
                         }
                     }
                     if !report.advisories.isEmpty {
                         AdvisoryList(advisories: report.advisories)
                     }
                     FooterNotes(report: report)
+                        .id("footer")
                 }
+            }
+            .task {
+                // Snapshots can ask to start further down the list.
+                guard let target = Snapshot.scrollTarget else { return }
+                try? await Task.sleep(for: .milliseconds(400))
+                scroller.scrollTo(target, anchor: .top)
+            }
             }
         }
     }
@@ -152,7 +163,7 @@ private struct CategoryRow: View {
             Spacer(minLength: 12)
 
             if category.items.count > 1 {
-                Text("\(category.items.count) items")
+                Text(countLabel)
                     .font(.callout)
                     .monospacedDigit()
                     .foregroundStyle(.tertiary)
@@ -179,6 +190,16 @@ private struct CategoryRow: View {
         .onHover { hovering = $0 }
         .accessibilityElement(children: .combine)
         .accessibilityHint(isExpanded ? "Collapse" : "Expand")
+    }
+}
+
+extension CategoryRow {
+    /// "6 items", or "4 of 6 selected" when the category is only partly ticked.
+    fileprivate var countLabel: String {
+        let total = category.items.count
+        guard model.state(of: category) == .mixed else { return "\(total) items" }
+        let selected = category.items.filter { model.selection.contains($0.id) }.count
+        return "\(selected) of \(total) selected"
     }
 }
 
@@ -389,8 +410,8 @@ private struct HeadroomHint: View {
                         : "Still tight after this cull")
                         .font(.headline)
                     Text("The biggest things not selected: " + suggestions.map {
-                        "\($0.item.title) in \($0.category) (\(Format.bytes($0.item.bytes)))"
-                    }.joined(separator: ", ") + ".")
+                        "\($0.category) › \($0.item.title) (\(Format.bytes($0.item.bytes)))"
+                    }.joined(separator: "; ") + ".")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

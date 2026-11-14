@@ -59,6 +59,9 @@ struct CullCommand {
         if let days = options.staleDays { scanOptions.staleDays = days }
         if let days = options.projectDays { scanOptions.projectStaleDays = days }
         if let days = options.downloadDays { scanOptions.downloadsAgeDays = days }
+        if let megabytes = options.simulatorFloorMegabytes {
+            scanOptions.livedInSimulatorBytes = Int64(megabytes) * 1_000_000
+        }
         scanOptions.projectRoots = options.roots
         scanOptions.onlyCategories = options.only
         scanOptions.exclusions = options.never.map { path in
@@ -184,6 +187,7 @@ struct Options {
     var staleDays: Int?
     var projectDays: Int?
     var downloadDays: Int?
+    var simulatorFloorMegabytes: Int?
     var home: String?
 
     static let usage = """
@@ -198,8 +202,9 @@ struct Options {
       Safe items are pre-selected. Rebuildable items are pre-selected once stale.
       Personal files ("Your call") are never pre-selected and go to the Trash.
       --include <ids>          Also select everything in these categories.
-                               `rebuildable` selects that whole tier.
-      --exclude <ids>          Deselect these categories.
+                               `rebuildable` selects that whole tier. A single item
+                               can be named by its id from --json ("category|item").
+      --exclude <ids>          Deselect these categories or items.
       --only <ids>             Scan only these categories.
       --never <paths>          Never offer these paths or anything inside them.
 
@@ -207,6 +212,7 @@ struct Options {
       --stale-days <n>         Xcode build data counts as stale after n days (default 14).
       --project-days <n>       A project counts as idle after n days (default 30).
       --download-days <n>      Downloads count as old after n days (default 90).
+      --simulator-mb <n>       Offer to erase simulators holding at least n MB (default 200).
       --roots <paths>          Folders to search for projects (default: the usual places).
 
     OUTPUT
@@ -236,7 +242,7 @@ struct Options {
         func days(for flag: String) throws -> Int {
             let raw = try value(for: flag)
             guard let number = Int(raw), number >= 0 else {
-                throw UsageError(message: "\(flag) needs a whole number of days, not \"\(raw)\"")
+                throw UsageError(message: "\(flag) needs a whole number, not \"\(raw)\"")
             }
             return number
         }
@@ -261,17 +267,20 @@ struct Options {
             case "--stale-days": options.staleDays = try days(for: argument)
             case "--project-days": options.projectDays = try days(for: argument)
             case "--download-days": options.downloadDays = try days(for: argument)
+            case "--simulator-mb": options.simulatorFloorMegabytes = try days(for: argument)
             case "--home": options.home = try value(for: argument)
             default: throw UsageError(message: "unknown option \(argument)")
             }
             index += 1
         }
 
+        // "category|item" names one item; anything else has to be a category.
         let known = Set(CullCatalog.entries.map(\.id))
-        for id in (options.only ?? []).union(options.exclude) where !known.contains(id) {
+        for id in options.only ?? [] where !known.contains(id) {
             throw UsageError(message: "unknown category \"\(id)\". `cull --list` shows them.")
         }
-        for id in options.include where !known.contains(id) && id != "rebuildable" {
+        for id in options.include.union(options.exclude)
+        where !known.contains(id) && id != "rebuildable" && !id.contains("|") {
             throw UsageError(message: "unknown category \"\(id)\". `cull --list` shows them.")
         }
         return options
@@ -291,9 +300,11 @@ struct Options {
             if include.contains(category.id) || wholeTier {
                 selection.formUnion(category.items.map(\.id))
             }
+            selection.formUnion(category.items.map(\.id).filter(include.contains))
             if exclude.contains(category.id) {
                 selection.subtract(category.items.map(\.id))
             }
+            selection.subtract(category.items.map(\.id).filter(exclude.contains))
         }
         return selection
     }

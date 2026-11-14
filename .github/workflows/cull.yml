@@ -7,6 +7,11 @@ on:
       - "cull/**"
       - ".github/workflows/cull.yml"
   workflow_dispatch:
+    inputs:
+      simulators:
+        description: "Also exercise the simulator rules for real (deletes one runtime on the runner)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -82,6 +87,22 @@ jobs:
       - name: Dry run on the runner's real home
         run: COLUMNS=110 .build/debug/cull --verbose
 
+      - name: Real cull on the runner's own home
+        run: |
+          cull=.build/debug/cull
+          # Package caches are emptied in place: the folder stays, its contents go.
+          $cull --apply --yes --only caches.packages | tail -3
+          test -d ~/Library/Caches/Homebrew
+          test -z "$(ls -A ~/Library/Caches/Homebrew)"
+
+          # A real file through the real Trash, then out of it.
+          head -c 3000000 /dev/urandom > ~/Downloads/cull-ci-check.bin
+          $cull --apply --yes --only downloads.old --download-days 0 --include downloads.old | tail -3
+          test ! -e ~/Downloads/cull-ci-check.bin
+          test -e ~/.Trash/cull-ci-check.bin
+          $cull --apply --yes --only trash --include trash | tail -3
+          test ! -e ~/.Trash/cull-ci-check.bin
+
       - name: Bundle the app
         run: |
           ./build.sh
@@ -108,7 +129,8 @@ jobs:
           }
           # CULL_PRETEND_DISK shows the stand-in home on a nearly full disk, which is what the app is for.
           CULL_SNAPSHOT="$PWD/shots/window.png" CULL_PRETEND_DISK=494,11.8 snapshot
-          CULL_SNAPSHOT="$PWD/shots/window-roomy.png" snapshot
+          CULL_SNAPSHOT="$PWD/shots/window-dark.png" CULL_PRETEND_DISK=494,11.8 CULL_SNAPSHOT_DARK=1 snapshot
+          CULL_SNAPSHOT="$PWD/shots/window-review.png" CULL_SNAPSHOT_SCROLL=review snapshot
           CULL_SNAPSHOT="$PWD/shots/window-expanded.png" CULL_SNAPSHOT_EXPAND=1 snapshot
           test -s shots/window.png || { echo "::error::no snapshot was written"; cat app.log; exit 1; }
 
@@ -126,10 +148,9 @@ jobs:
       - name: Put small copies of the snapshots in the log
         run: |
           # The artifact store is not reachable from every network, so the log carries a copy too.
-          for name in window window-roomy; do
-            sips -s format jpeg -s formatOptions 72 "shots/$name.png" --out "shots/$name.jpg" > /dev/null
+          for name in window window-dark window-review window-expanded; do
             echo "-----BEGIN CULL SHOT $name-----"
-            base64 -i "shots/$name.jpg" | fold -w 120
+            base64 -i "shots/$name.png" | fold -w 120
             echo "-----END CULL SHOT $name-----"
           done
 
@@ -139,3 +160,63 @@ jobs:
           name: cull-screenshots
           path: cull/shots
           if-no-files-found: warn
+
+  simulators:
+    # Proves the three `xcrun simctl` actions against real simulators. It deletes a runtime,
+    # so it only runs when asked: dispatch with "simulators" ticked, or put [simulators] in a commit message.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.simulators) ||
+      contains(github.event.head_commit.message, '[simulators]')
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the CLI
+        run: swift build --product cull
+
+      - name: Erase one simulator
+        run: |
+          cull=.build/debug/cull
+          $cull --json --only sim.data --simulator-mb 1 > data.json
+          item=$(jq -r '[.report.categories[].items[]] | first | .id // empty' data.json)
+          test -n "$item" || { echo "::error::no simulator was offered for erasing"; exit 1; }
+          echo "Erasing $item"
+          $cull --apply --yes --only sim.data --simulator-mb 1 --include "$item" | tail -4
+
+      - name: Delete one runtime
+        run: |
+          cull=.build/debug/cull
+          # The smallest runtime that has simulators, so the next step has something to find.
+          xcrun simctl list devices -j > devices.json
+          xcrun simctl runtime list -j > installed.json
+          jq -r '.devices | to_entries[] | select(.value | length > 0) | .key' devices.json > in-use.txt
+          uuid=$(jq -r --rawfile used in-use.txt '
+            ($used | split("\n")) as $names
+            | [ .[] | select(.deletable != false) | select(.runtimeIdentifier as $r | $names | index($r)) ]
+            | min_by(.sizeBytes) | .identifier' installed.json)
+          item="sim.runtimes|$uuid"
+          echo "Deleting $item"
+          xcrun simctl runtime list | head -20
+          # It has to be on offer in the first place.
+          $cull --json --only sim.runtimes | jq -e --arg id "$item" '[.report.categories[].items[].id] | index($id)' > /dev/null
+          $cull --apply --yes --only sim.runtimes --include "$item" | tail -4
+          # Deletion is finished by a background service; give it a moment.
+          for _ in $(seq 1 30); do
+            xcrun simctl runtime list -j | jq -e --arg id "$uuid" 'has($id) | not' > /dev/null && break
+            sleep 4
+          done
+          xcrun simctl runtime list -j | jq -e --arg id "$uuid" 'has($id) | not' > /dev/null \
+            || { echo "::error::the runtime is still installed"; exit 1; }
+
+      - name: Delete the simulators that runtime left behind
+        run: |
+          cull=.build/debug/cull
+          $cull --only sim.unavailable --verbose
+          stranded=$(xcrun simctl list devices unavailable -j | jq '[.devices[][]] | length')
+          echo "Unavailable before: $stranded"
+          test "$stranded" -gt 0 || { echo "::error::deleting the runtime stranded no simulators"; exit 1; }
+          $cull --apply --yes --only sim.unavailable | tail -4
+          left=$(xcrun simctl list devices unavailable -j | jq '[.devices[][]] | length')
+          echo "Unavailable after: $left"
+          test "$left" -eq 0
