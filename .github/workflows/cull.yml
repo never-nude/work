@@ -73,3 +73,33 @@ jobs:
 
       - name: Dry run on the runner's real home
         run: COLUMNS=110 .build/debug/cull --verbose
+
+      - name: Bundle the app
+        run: |
+          ./build.sh
+          plutil -lint build/Cull.app/Contents/Info.plist
+          codesign --verify --verbose=2 build/Cull.app
+          sips -g pixelWidth -g pixelHeight Resources/AppIcon.icns
+          build/cull --version
+
+      - name: Launch the app on the stand-in home and take a screenshot
+        run: |
+          python3 Scripts/make-demo-home.py "$RUNNER_TEMP/demo" --scale 0.2 --force
+          CULL_HOME="$RUNNER_TEMP/demo/home" CULL_DAYS_AHEAD=400 build/Cull.app/Contents/MacOS/Cull > app.log 2>&1 &
+          echo $! > app.pid
+          sleep 12
+          if ! kill -0 "$(cat app.pid)" 2>/dev/null; then
+            echo "::error::Cull.app exited early"; cat app.log; exit 1
+          fi
+          mkdir -p shots
+          screencapture -x shots/screen.png || echo "screencapture failed"
+          sips -g pixelWidth -g pixelHeight shots/screen.png || true
+          kill "$(cat app.pid)" || true
+          echo "--- app log"; cat app.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cull-screenshots
+          path: cull/shots
+          if-no-files-found: warn

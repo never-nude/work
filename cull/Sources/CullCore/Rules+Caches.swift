@@ -25,6 +25,15 @@ extension Rule {
         "fontconfig": ("fontconfig", []),
         "mesa_shader_cache": ("Mesa shader cache", []),
         "node": ("Node", []),
+        "bazel": ("Bazel", []),
+        "bazelisk": ("Bazelisk", []),
+        "gem": ("RubyGems", []),
+        "black": ("Black", []),
+        "ruff": ("Ruff", []),
+        "mypy": ("mypy", []),
+        "virtualenv": ("virtualenv", []),
+        "rubocop_cache": ("RuboCop", []),
+        "jedi": ("Jedi", []),
     ]
 
     private static let reverseDNSPrefixes: Set<String> = [

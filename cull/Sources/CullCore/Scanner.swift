@@ -201,6 +201,12 @@ public final class Scanner: Sendable {
         )
     }
 
+    /// The project folders this scan would search: the configured ones, or the usual places that exist.
+    public func projectRoots() -> [String] {
+        let context = RuleContext(env: environment, options: options, claimed: [], memo: ScanMemo())
+        return ProjectScanner(context: context).roots()
+    }
+
     private static func isExcluded(_ paths: [String], by exclusions: [String]) -> Bool {
         paths.contains { path in
             exclusions.contains { path == $0 || path.hasPrefix($0 + "/") }
