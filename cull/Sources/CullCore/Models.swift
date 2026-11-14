@@ -187,6 +187,19 @@ public struct ScanReport: Sendable, Codable {
     public func bytes(selected: Set<String>) -> Int64 {
         allItems.reduce(0) { $0 + (selected.contains($1.id) ? $1.bytes : 0) }
     }
+
+    /// The selection to start from when a scan replaces one the user was already working on.
+    ///
+    /// What is recommended is decided afresh by this report, so something that was safe then and
+    /// is in use now is not carried over. On top of that, whatever the user had ticked or unticked
+    /// by hand on the previous report stays as they left it, for as long as the item is still on offer.
+    public func selection(carrying previousSelection: Set<String>, from previous: ScanReport) -> Set<String> {
+        let recommendedBefore = previous.defaultSelection
+        let tickedByHand = previousSelection.subtracting(recommendedBefore)
+        let untickedByHand = recommendedBefore.subtracting(previousSelection)
+        let onOffer = Set(allItems.map(\.id))
+        return defaultSelection.union(tickedByHand.intersection(onOffer)).subtracting(untickedByHand)
+    }
 }
 
 public struct ScanOptions: Sendable, Codable, Equatable {

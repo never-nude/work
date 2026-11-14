@@ -33,6 +33,12 @@ enum Snapshot {
         path != nil && ProcessInfo.processInfo.environment["CULL_SNAPSHOT_CULL"] == "1"
     }
 
+    /// `CULL_SNAPSHOT_STALE=1` shows what happens when Cull is pressed on a list that has gone stale:
+    /// the model unticks one recommendation, treats the scan as old, and photographs the rescan.
+    static var goesStaleFirst: Bool {
+        path != nil && ProcessInfo.processInfo.environment["CULL_SNAPSHOT_STALE"] == "1"
+    }
+
     /// `CULL_APPEARANCE=dark` (or `light`) forces the app's appearance, whatever the system is set to.
     /// This one works on its own, without `CULL_SNAPSHOT`.
     static func applyRequestedAppearance() {

@@ -255,6 +255,53 @@ final class EndToEndTests: XCTestCase {
         XCTAssertNotNil(second.item("downloads.old", titled: "old-installer.dmg"))
     }
 
+    /// The app rescans by itself when the list on screen has gone stale. The user's own ticks
+    /// must survive that; Cull's recommendations must not.
+    func testARescanKeepsHandMadeChoicesAndDecidesTheRestAfresh() async throws {
+        let fixture = try Fixture()
+        fixture.file("Library/Caches/com.spotify.client/Data/chunk")
+        fixture.file("Library/Caches/com.figma.Desktop/x")
+        fixture.file("Library/Caches/com.some.editor/x")
+        fixture.file("Library/Caches/mysterydaemon/state")
+        fixture.file(".Trash/old-export.zip", bytes: 30_000)
+        fixture.file("Downloads/old-installer.dmg", bytes: 30_000)
+
+        let before = try await fixture.scan()
+        func id(_ report: ScanReport, _ category: String, _ title: String) throws -> String {
+            try XCTUnwrap(report.item(category, titled: title), "\(title) is not on offer").id
+        }
+        let spotify = try id(before, "caches.apps", "com.spotify.client")
+        let figma = try id(before, "caches.apps", "com.figma.Desktop")
+        let editor = try id(before, "caches.apps", "com.some.editor")
+        let mystery = try id(before, "caches.apps", "mysterydaemon")
+        let trash = try XCTUnwrap(before.items("trash").first).id
+        let download = try id(before, "downloads.old", "old-installer.dmg")
+        XCTAssertEqual(before.defaultSelection, [spotify, figma, editor])
+
+        // By hand: keep Figma's cache, and also take the Trash, the unrecognised cache and an old download.
+        let chosen = before.defaultSelection.subtracting([figma]).union([trash, mystery, download])
+
+        // Time passes. The editor is opened, the download is dealt with, a new cache appears.
+        try FileManager.default.removeItem(atPath: fixture.path("Downloads/old-installer.dmg"))
+        fixture.file("Library/Caches/com.new.arrival/x")
+        let after = try await fixture.scan(runningApps: ["com.some.editor"])
+        let arrival = try id(after, "caches.apps", "com.new.arrival")
+        let carried = after.selection(carrying: chosen, from: before)
+
+        XCTAssertTrue(carried.contains(spotify), "still recommended, still ticked")
+        XCTAssertFalse(carried.contains(figma), "unticked by hand stays unticked")
+        XCTAssertFalse(carried.contains(editor), "it was only ticked because it was recommended, and it no longer is")
+        XCTAssertTrue(carried.contains(trash), "ticked by hand stays ticked")
+        XCTAssertTrue(carried.contains(mystery), "ticked by hand stays ticked")
+        XCTAssertFalse(carried.contains(download), "gone, so there is nothing to tick")
+        XCTAssertTrue(carried.contains(arrival), "new recommendations are ticked like any other")
+        XCTAssertEqual(carried, [spotify, trash, mystery, arrival])
+        XCTAssertTrue(carried.isSubset(of: Set(after.allItems.map(\.id))), "nothing is selected that is not on offer")
+
+        // With no changes made by hand, a rescan is just the new recommendations.
+        XCTAssertEqual(after.selection(carrying: before.defaultSelection, from: before), after.defaultSelection)
+    }
+
     func testReportsAndSummariesSurviveJSON() async throws {
         let fixture = try makeHome()
         let report = try await fixture.scan()

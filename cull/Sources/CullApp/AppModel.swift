@@ -38,9 +38,18 @@ final class AppModel {
     /// so Cull looks again before deleting anything.
     static let reportShelfLife: TimeInterval = 600
 
+    /// What the user had on screen when Cull rescanned of its own accord, so their own ticks survive it.
+    private struct Carried {
+        let report: ScanReport
+        let selection: Set<String>
+        let expanded: Set<String>
+    }
+
     @ObservationIgnored private var scanTask: Task<ScanReport, Never>?
     @ObservationIgnored private var scanGeneration = 0
+    @ObservationIgnored private var carried: Carried?
     @ObservationIgnored private var snapshotDidCull = false
+    @ObservationIgnored private var snapshotDidGoStale = false
 
     // MARK: Derived
 
@@ -95,8 +104,15 @@ final class AppModel {
         scan()
     }
 
+    /// Scans from scratch: the list comes back with Cull's own recommendations ticked.
     func scan() {
         guard phase != .culling else { return }
+        carried = nil
+        notice = nil
+        beginScan()
+    }
+
+    private func beginScan() {
         scanTask?.cancel()
 
         if CullEnvironment.isRunningAsRoot {
@@ -148,13 +164,30 @@ final class AppModel {
         guard generation == scanGeneration, !report.cancelled else { return }
         self.report = report
         if let environment { disk = currentDisk(in: environment) ?? report.disk }
-        selection = report.defaultSelection
         // Open what has a decision in it: anything only partly selected.
-        expanded = Set(report.categories.filter { state(of: $0) == .mixed }.map(\.id))
+        if let carried {
+            selection = report.selection(carrying: carried.selection, from: carried.report)
+            let stillThere = Set(report.categories.map(\.id))
+            expanded = carried.expanded.intersection(stillThere)
+                .union(report.categories.filter { state(of: $0) == .mixed }.map(\.id))
+            self.carried = nil
+        } else {
+            selection = report.defaultSelection
+            expanded = Set(report.categories.filter { state(of: $0) == .mixed }.map(\.id))
+        }
         scanProgress = nil
         phase = .ready
 
         if Snapshot.path != nil {
+            // A snapshot of the stale-scan path: untick the first recommendation by hand, pretend
+            // a long time has passed, and press Cull. Nothing is deleted; Cull rescans instead.
+            if Snapshot.goesStaleFirst, !snapshotDidGoStale {
+                snapshotDidGoStale = true
+                if let first = report.categories.first(where: { state(of: $0) == .on }) { toggle(first) }
+                self.report?.finishedAt = .distantPast
+                requestCull()
+                return
+            }
             // A snapshot of the "after" state: cull once, then photograph the rescan. Sandbox homes only.
             if Snapshot.cullsFirst, environment?.isSandbox == true, !snapshotDidCull {
                 snapshotDidCull = true
@@ -247,17 +280,31 @@ final class AppModel {
 
     /// The Cull button: asks first unless the user turned that off.
     func requestCull() {
-        guard canCull, let report else { return }
-        if Date().timeIntervalSince(report.finishedAt) > Self.reportShelfLife {
-            notice = "That scan was more than \(Int(Self.reportShelfLife / 60)) minutes old, so Cull looked again. Check the list, then cull."
-            scan()
-            return
-        }
+        guard canCull, !rescanIfStale() else { return }
         if AppSettings.confirmBeforeCulling {
             showingConfirmation = true
         } else {
             cull()
         }
+    }
+
+    /// The confirmation's own Cull button. The dialog can sit open for a long time, so look at the clock again.
+    func confirmCull() {
+        guard canCull, !rescanIfStale() else { return }
+        cull()
+    }
+
+    /// A list that has gone stale is replaced before anything is deleted. The user's own ticks
+    /// come along; Cull's recommendations are made again from what is true now.
+    private func rescanIfStale() -> Bool {
+        guard let report, Date().timeIntervalSince(report.finishedAt) > Self.reportShelfLife else { return false }
+        let changedByHand = selection != report.defaultSelection
+        carried = Carried(report: report, selection: selection, expanded: expanded)
+        notice = "That scan was more than \(Int(Self.reportShelfLife / 60)) minutes old, so Cull looked again."
+            + (changedByHand ? " What you ticked or unticked yourself is as you left it." : "")
+            + " Check the list, then cull."
+        beginScan()
+        return true
     }
 
     func cull() {

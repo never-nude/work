@@ -27,7 +27,7 @@ struct ContentView: View {
             }
         }
         .confirmationDialog(model.confirmationTitle, isPresented: $model.showingConfirmation, titleVisibility: .visible) {
-            Button("Cull \(Format.bytes(model.selectedBytes))", role: .destructive) { model.cull() }
+            Button("Cull \(Format.bytes(model.selectedBytes))", role: .destructive) { model.confirmCull() }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(model.confirmationMessage)

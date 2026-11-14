@@ -52,7 +52,7 @@ Rules decide what is worth culling. A separate safety guard, with its own lists,
 - In every other folder of yours, exactly two things can go: a top-level item of `~/Downloads` (to the Trash only), or a folder named like a build artifact (`node_modules`, `.build`, `Pods`, `.venv`, `target`…) that sits next to the manifest proving what it is.
 - Personal files (downloads, backups, archives) are moved to the Trash, never deleted.
 - Symlinks are never followed. A cache folder that has been relocated through a symlink is invisible to Cull.
-- It does not act on old information. A scan more than ten minutes old is redone before anything is deleted, and an app that has been opened since the scan keeps its cache.
+- It does not act on old information. A scan more than ten minutes old is redone before anything is deleted, and an app that has been opened since the scan keeps its cache. The fresh list keeps whatever you ticked or unticked yourself; only Cull's own recommendations are made again.
 - It never reaches into another volume. A folder with a disk image or network share mounted inside it is not offered at all.
 - Simulators are removed through `xcrun simctl`, not by deleting their folders.
 - It refuses to run as root, and will only treat a folder as "home" if that folder belongs to you.

@@ -56,6 +56,11 @@ jobs:
           status=$?
           # Show what matters: failures in full, then the totals.
           grep -E "error:|' failed|Executed [0-9]+ tests" test.log | sort -u | head -80
+          # Nothing is meant to be skipped on a Mac, so a skip is a test that silently stopped testing.
+          if grep -E "Executed [0-9]+ tests?, with [0-9]+ tests? skipped" test.log; then
+            echo "::error::Some tests were skipped"
+            exit 1
+          fi
           exit $status
 
       - name: Dry run on a stand-in home
@@ -141,7 +146,11 @@ jobs:
           CULL_SNAPSHOT="$PWD/shots/window-review.png" CULL_SNAPSHOT_SCROLL=review snapshot
           CULL_SNAPSHOT="$PWD/shots/window-expanded.png" CULL_SNAPSHOT_EXPAND=1 snapshot
           CULL_SNAPSHOT="$PWD/shots/window-settings.png" CULL_SNAPSHOT_SETTINGS=1 snapshot
+          # Cull pressed on a list that has gone stale: it rescans instead of deleting, and says so.
+          CULL_SNAPSHOT="$PWD/shots/window-stale.png" CULL_SNAPSHOT_STALE=1 CULL_PRETEND_DISK=494,11.8 snapshot
+          test -e "$CULL_HOME/Developer/gallery-site/node_modules" || { echo "::error::a stale list was acted on"; exit 1; }
           test -s shots/window.png || { echo "::error::no snapshot was written"; cat app.log; exit 1; }
+          test -s shots/window-stale.png || { echo "::error::no snapshot of the stale-list path"; cat app.log; exit 1; }
 
           # And the real screen with the app running, light and dark, if the runner allows screen capture.
           capture() {
@@ -174,7 +183,7 @@ jobs:
             base64 -i "$2" | fold -w 2000
             echo "-----END CULL SHOT $1-----"
           }
-          for name in screen-dark window-settings window-culled; do
+          for name in screen-dark window-settings window-culled window-stale; do
             if [ -s "shots/$name.png" ]; then
               sips -s format jpeg -s formatOptions 65 "shots/$name.png" --out "shots/$name.jpg" > /dev/null
               emit "$name" "shots/$name.jpg"
