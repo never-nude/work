@@ -152,6 +152,8 @@ enum Posix {
     }
 
     static var isRoot: Bool { geteuid() == 0 }
+
+    static var effectiveUserID: UInt32 { UInt32(geteuid()) }
 }
 
 /// What a tree weighs on disk.

@@ -50,7 +50,7 @@ struct CullCommand {
             printError("cull: \(error)")
             return 1
         }
-        if CullEnvironment.isRunningAsRoot, !environment.isSandbox {
+        if CullEnvironment.isRunningAsRoot {
             printError("cull: don't run this with sudo. Cull only touches your own files and refuses to delete as root.")
             return 1
         }

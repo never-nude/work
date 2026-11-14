@@ -60,13 +60,18 @@ public struct CullEnvironment: Sendable {
         guard let canonical = Posix.realPath(rawHome) else {
             throw EnvironmentError.unusableHome("\(rawHome) does not exist")
         }
-        guard Posix.info(at: canonical)?.kind == .directory else {
+        guard let folder = Posix.info(at: canonical), folder.kind == .directory else {
             throw EnvironmentError.unusableHome("\(canonical) is not a folder")
         }
-        // "/", "/Users", "/tmp" and friends are never a home folder.
+        // "/", "/Users" and friends are never a home folder.
         let components = canonical.split(separator: "/")
         guard components.count >= 2 else {
             throw EnvironmentError.unusableHome("\(canonical) is too close to the top of the disk")
+        }
+        // A home folder belongs to whoever is running Cull. This is what rules out /tmp,
+        // /Library, /usr/local and every other shared or system location, however deep.
+        guard folder.ownerID == Posix.effectiveUserID else {
+            throw EnvironmentError.unusableHome("\(canonical) does not belong to you")
         }
         self.home = canonical
         self.now = now

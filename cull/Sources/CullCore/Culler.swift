@@ -105,7 +105,8 @@ public final class Culler: Sendable {
 
     func perform(_ item: CullItem) -> CullOutcome {
         // Deleting as root would sail past the permissions that keep mistakes small.
-        if Posix.isRoot, !environment.isSandbox {
+        // No exception for sandbox homes: `sudo` plus a mistyped CULL_HOME is exactly the mistake.
+        if Posix.isRoot {
             return outcome(item, .failed, "Cull refuses to delete anything as root. Run it as yourself, without sudo.")
         }
 

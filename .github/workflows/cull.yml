@@ -45,7 +45,13 @@ jobs:
           fi
 
       - name: Test
-        run: swift test 2>&1 | tail -40
+        run: |
+          set +e
+          swift test > test.log 2>&1
+          status=$?
+          # Show what matters: failures in full, then the totals.
+          grep -E "error:|' failed|Executed [0-9]+ tests" test.log | sort -u | head -80
+          exit $status
 
       - name: Dry run on a stand-in home
         run: |
@@ -84,19 +90,35 @@ jobs:
           sips -g pixelWidth -g pixelHeight Resources/AppIcon.icns
           build/cull --version
 
-      - name: Launch the app on the stand-in home and take a screenshot
+      - name: Launch the app on the stand-in home and photograph it
         run: |
           python3 Scripts/make-demo-home.py "$RUNNER_TEMP/demo" --scale 0.2 --force
-          CULL_HOME="$RUNNER_TEMP/demo/home" CULL_DAYS_AHEAD=400 build/Cull.app/Contents/MacOS/Cull > app.log 2>&1 &
-          echo $! > app.pid
-          sleep 12
-          if ! kill -0 "$(cat app.pid)" 2>/dev/null; then
-            echo "::error::Cull.app exited early"; cat app.log; exit 1
-          fi
           mkdir -p shots
-          screencapture -x shots/screen.png || echo "screencapture failed"
-          sips -g pixelWidth -g pixelHeight shots/screen.png || true
-          kill "$(cat app.pid)" || true
+          export CULL_HOME="$RUNNER_TEMP/demo/home" CULL_DAYS_AHEAD=400
+          app=build/Cull.app/Contents/MacOS/Cull
+
+          # With CULL_SNAPSHOT set the app saves a picture of its own window after the first scan, then quits.
+          snapshot() {
+            "$app" >> app.log 2>&1 &
+            local pid=$!
+            for _ in $(seq 1 45); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+            if kill -0 "$pid" 2>/dev/null; then
+              echo "::error::Cull.app did not finish its snapshot"; kill "$pid"; cat app.log; exit 1
+            fi
+          }
+          CULL_SNAPSHOT="$PWD/shots/window.png" snapshot
+          CULL_SNAPSHOT="$PWD/shots/window-expanded.png" CULL_SNAPSHOT_EXPAND=1 snapshot
+          test -s shots/window.png || { echo "::error::no snapshot was written"; cat app.log; exit 1; }
+
+          # And the real screen with the app running, if the runner allows screen capture.
+          "$app" >> app.log 2>&1 &
+          pid=$!
+          sleep 10
+          kill -0 "$pid" 2>/dev/null || { echo "::error::Cull.app exited early"; cat app.log; exit 1; }
+          screencapture -x shots/screen.png || echo "screencapture unavailable"
+          kill "$pid" || true
+
+          sips -g pixelWidth -g pixelHeight shots/*.png
           echo "--- app log"; cat app.log
 
       - uses: actions/upload-artifact@v4

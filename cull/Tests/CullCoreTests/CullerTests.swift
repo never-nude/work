@@ -8,6 +8,10 @@ import Glibc
 #endif
 
 final class CullerTests: XCTestCase {
+    override func setUpWithError() throws {
+        try XCTSkipIf(Fixture.isRoot, "Cull refuses to delete as root, so these cannot run as root")
+    }
+
     private func item(
         _ fixture: Fixture, _ relative: [String], action: ItemAction, scope: PathScope, bytes: Int64 = 8_192
     ) -> CullItem {
@@ -281,10 +285,18 @@ final class CullerTests: XCTestCase {
 
     // MARK: Environment
 
-    func testHomeMustBeARealFolderWellBelowTheRoot() {
-        for bad in ["/", "/tmp", "relative/path", "/definitely/not/here"] {
+    func testHomeMustBeARealFolderThatBelongsToYou() {
+        // "/tmp" resolves to /private/tmp on macOS, and /usr/bin is plenty deep: it is ownership,
+        // not depth, that rules shared and system folders out.
+        for bad in ["/", "/tmp", "/usr/bin", "/usr/share/man", "relative/path", "/definitely/not/here"] {
             XCTAssertThrowsError(try CullEnvironment(home: bad), "\(bad) should be rejected")
         }
+    }
+
+    func testAFileIsNotAHome() throws {
+        let fixture = try Fixture()
+        fixture.file("not-a-folder")
+        XCTAssertThrowsError(try CullEnvironment(home: fixture.path("not-a-folder")))
     }
 
     func testHomeIsCanonicalized() throws {

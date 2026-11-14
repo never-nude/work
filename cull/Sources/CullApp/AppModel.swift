@@ -75,7 +75,7 @@ final class AppModel {
         guard phase != .culling else { return }
         scanTask?.cancel()
 
-        if CullEnvironment.isRunningAsRoot, ProcessInfo.processInfo.environment[CullEnvironment.homeOverrideVariable] == nil {
+        if CullEnvironment.isRunningAsRoot {
             phase = .failed("Cull is running as root. Quit and open it normally: it only ever touches your own files.")
             return
         }
@@ -124,6 +124,11 @@ final class AppModel {
         expanded = Set(report.categories.filter { state(of: $0) == .mixed }.map(\.id))
         scanProgress = nil
         phase = .ready
+
+        if Snapshot.path != nil {
+            if Snapshot.expandsEverything { expandAll() }
+            Snapshot.captureAndQuit()
+        }
     }
 
     // MARK: Select

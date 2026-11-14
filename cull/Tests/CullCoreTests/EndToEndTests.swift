@@ -4,6 +4,10 @@ import XCTest
 /// Builds a lived-in home folder and checks the one property that matters most:
 /// whatever gets culled, the things a person cannot get back are still there afterwards.
 final class EndToEndTests: XCTestCase {
+    override func setUpWithError() throws {
+        try XCTSkipIf(Fixture.isRoot, "Cull refuses to delete as root, so these cannot run as root")
+    }
+
     private let staleBuild = "Library/Developer/Xcode/DerivedData/OldApp-abcdefghijklmnopqrstuvwxyzab"
     private let freshBuild = "Library/Developer/Xcode/DerivedData/ThreadKeep-bcdefghijklmnopqrstuvwxyzabc"
     private let deviceSupport = "Library/Developer/Xcode/iOS DeviceSupport"
