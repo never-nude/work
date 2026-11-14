@@ -324,6 +324,19 @@ final class ProjectRuleTests: XCTestCase {
         XCTAssertEqual(report.skippedNotes, [])
     }
 
+    func testLibraryHiddenAndMediaFoldersAreNeverProjectRoots() async throws {
+        let fixture = try Fixture()
+        for folder in ["Library/Application Support/SomeApp", ".vscode/extensions/ext", "Pictures/site", "Movies/render"] {
+            fixture.file("\(folder)/package.json")
+            fixture.file("\(folder)/package-lock.json")
+            fixture.file("\(folder)/node_modules/x/index.js")
+        }
+        let roots = ["~/Library", "~/Library/Application Support", "~/.vscode", "~/Pictures", "~/Movies/render"]
+        let report = try await fixture.scan(fixture.options(roots: roots))
+        XCTAssertNil(report.category("projects.artifacts"))
+        XCTAssertEqual(report.skippedNotes, [], "they are not searched at all, rather than searched and refused")
+    }
+
     func testOverlappingRootsDoNotDoubleCount() async throws {
         let fixture = try Fixture()
         fixture.file("Documents/GitHub/site/package.json")

@@ -81,6 +81,25 @@ final class SizerTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(measured.bytes, 10_000)
     }
 
+    func testNoticesAnotherVolumeMountedInsideATree() throws {
+        // "/" always has other filesystems mounted directly inside it (/dev, /proc, the data volume).
+        // Stop after its first folder so the test does not walk the whole disk.
+        var polls = 0
+        let measured = DirectorySizer.measure("/", isCancelled: {
+            polls += 1
+            return polls > 1
+        })
+        XCTAssertTrue(measured.crossesVolume)
+        XCTAssertTrue(Posix.crossesVolume("/"))
+
+        let fixture = try Fixture()
+        fixture.file("tree/a/b/c.bin")
+        XCTAssertFalse(DirectorySizer.measure(fixture.path("tree")).crossesVolume)
+        XCTAssertFalse(Posix.crossesVolume(fixture.path("tree")))
+        XCTAssertFalse(Posix.crossesVolume(fixture.path("tree/a/b/c.bin")))
+        XCTAssertFalse(Posix.crossesVolume(fixture.path("missing")))
+    }
+
     func testStopsWhenCancelled() throws {
         let fixture = try Fixture()
         for index in 0..<20 { fixture.file("tree/d\(index)/f.bin", bytes: 4_096) }

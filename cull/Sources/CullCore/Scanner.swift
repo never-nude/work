@@ -130,6 +130,10 @@ public final class Scanner: Sendable {
             guard let measurement = measurements[index] else { continue }
             let rule = active[job.ruleIndex]
             let candidate = job.candidate
+            if measurement.crossesVolume {
+                notes.append("Skipped \(candidate.title): another volume is mounted inside it.")
+                continue
+            }
             guard measurement.bytes >= (candidate.minimumBytes ?? options.minimumItemBytes) else { continue }
 
             var lastUsed = candidate.lastUsed

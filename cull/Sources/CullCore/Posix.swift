@@ -151,6 +151,29 @@ enum Posix {
         }
     }
 
+    /// True when another volume is mounted at `path` or anywhere inside it. Removing such a
+    /// tree would reach into that volume, which is never what was asked for.
+    static func crossesVolume(_ path: String) -> Bool {
+        guard let root = info(at: path), root.kind == .directory else { return false }
+        if let parent = info(at: parent(of: path)), parent.device != root.device { return true }
+        var stack = [path]
+        while let dir = stack.popLast() {
+            var found = false
+            var subdirectories: [String] = []
+            forEachEntry(in: dir) { name, fd in
+                guard !found, let st = info(named: name, in: fd), st.kind == .directory else { return }
+                if st.device != root.device {
+                    found = true
+                } else {
+                    subdirectories.append(join(dir, String(cString: name)))
+                }
+            }
+            if found { return true }
+            stack.append(contentsOf: subdirectories)
+        }
+        return false
+    }
+
     static var isRoot: Bool { geteuid() == 0 }
 
     static var effectiveUserID: UInt32 { UInt32(geteuid()) }
@@ -164,6 +187,8 @@ public struct Measurement: Sendable, Equatable {
     public var newest: Date?
     /// Some directory could not be read, or the walk was cancelled; `bytes` is a lower bound.
     public var incomplete: Bool = false
+    /// Another volume is mounted somewhere inside. Cull never offers such a tree.
+    public var crossesVolume: Bool = false
 
     public init() {}
 
@@ -172,6 +197,7 @@ public struct Measurement: Sendable, Equatable {
         entries += other.entries
         if let theirs = other.newest, newest.map({ theirs > $0 }) ?? true { newest = theirs }
         incomplete = incomplete || other.incomplete
+        crossesVolume = crossesVolume || other.crossesVolume
     }
 }
 
@@ -211,8 +237,11 @@ enum DirectorySizer {
             let opened = Posix.forEachEntry(in: dir) { name, fd in
                 guard let st = Posix.info(named: name, in: fd) else { return }
                 account(st)
-                if st.kind == .directory, st.device == root.device {
+                guard st.kind == .directory else { return }
+                if st.device == root.device {
                     subdirectories.append(Posix.join(dir, String(cString: name)))
+                } else {
+                    result.crossesVolume = true
                 }
             }
             if !opened { result.incomplete = true }

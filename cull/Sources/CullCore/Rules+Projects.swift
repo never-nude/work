@@ -177,6 +177,12 @@ struct ProjectScanner {
         var roots: [String] = []
         for candidate in requested {
             guard let real = context.directory(atPath: candidate), let stat = Posix.info(at: real) else { continue }
+            // Nothing in ~/Library, a hidden folder or a media folder is a project, and the
+            // safety guard would refuse whatever was found there anyway.
+            let top = real.dropFirst(context.home.count + 1).split(separator: "/").first.map(String.init) ?? ""
+            if top == "Library" || top.hasPrefix(".") || SafetyGuard.protectedTopLevel.contains(top.lowercased()) {
+                continue
+            }
             guard seen.insert(FileIdentity(device: stat.device, inode: stat.inode)).inserted else { continue }
             roots.append(real)
         }

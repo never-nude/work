@@ -260,6 +260,57 @@ final class CullerTests: XCTestCase {
         XCTAssertTrue(fixture.exists("Documents/precious/DerivedData/App-abcdefghijklmnopqrstuvwxyzab/novel.txt"))
     }
 
+    #if os(macOS)
+    private func hdiutil(_ arguments: String...) -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
+        process.arguments = arguments
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return false }
+        process.waitUntilExit()
+        return process.terminationStatus == 0
+    }
+
+    /// Mounts a small disk image inside a cache folder, the way an installer or a network
+    /// share can end up inside a folder Cull would otherwise empty.
+    func testNeverReachesIntoAMountedVolume() async throws {
+        let fixture = try Fixture()
+        fixture.file("Library/Caches/com.example.mounted/loose.bin", bytes: 50_000)
+        fixture.file("Library/Caches/com.example.plain/data.bin", bytes: 50_000)
+        let mountPoint = fixture.dir("Library/Caches/com.example.mounted/volume")
+        let image = fixture.base + "/image.dmg"
+        try XCTSkipUnless(
+            hdiutil("create", "-size", "20m", "-fs", "APFS", "-volname", "CullTest", "-quiet", image),
+            "could not create a disk image"
+        )
+        try XCTSkipUnless(
+            hdiutil("attach", image, "-mountpoint", mountPoint, "-nobrowse", "-quiet"),
+            "could not mount a disk image"
+        )
+        defer { _ = hdiutil("detach", mountPoint, "-force", "-quiet") }
+        let precious = mountPoint + "/keep-me.bin"
+        XCTAssertTrue(FileManager.default.createFile(atPath: precious, contents: Data(repeating: 1, count: 100_000)))
+
+        // The scanner will not offer the folder at all, and says why.
+        let report = try await fixture.scan()
+        XCTAssertEqual(report.items("caches.apps").map(\.title), ["com.example.plain"])
+        XCTAssertTrue(report.notes.contains { $0.contains("another volume is mounted") })
+
+        // And the culler refuses it even when handed it directly.
+        let scope = PathScope.under([fixture.path("Library/Caches")])
+        let attempts = [
+            item(fixture, ["Library/Caches/com.example.mounted"], action: .deleteContents, scope: scope),
+            item(fixture, ["Library/Caches/com.example.mounted"], action: .delete, scope: scope),
+            item(fixture, ["Library/Caches/com.example.mounted/volume"], action: .delete, scope: scope),
+        ]
+        let summary = try await cull(fixture, attempts)
+        XCTAssertEqual(summary.outcomes.map(\.status), [.failed, .failed, .failed])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: precious))
+        XCTAssertTrue(fixture.exists("Library/Caches/com.example.mounted/loose.bin"))
+    }
+    #endif
+
     // MARK: Commands
 
     func testCommandsRunThroughTheRunner() async throws {

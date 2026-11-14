@@ -186,6 +186,11 @@ public final class Culler: Sendable {
             return .refused("Refused \(shown): it is reached through a symlink")
         }
 
+        // FileManager would happily delete its way into a disk image or network share mounted inside.
+        if Posix.crossesVolume(path) {
+            return .refused("Refused \(shown): another volume is mounted there")
+        }
+
         // A build artifact is only believed while the manifest that explains it still sits beside it.
         if case .artifact = scope {
             guard stat.kind == .directory, Self.artifactIsVouchedFor(path) else {
