@@ -15,41 +15,61 @@ concurrency:
   group: cull-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    working-directory: cull
+
 jobs:
-  recon:
+  macos:
     runs-on: macos-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
+      - uses: actions/checkout@v4
+
       - name: Toolchain
         run: |
           sw_vers
           xcodebuild -version
           swift --version
-          ls /Applications | grep -i xcode || true
-      - name: Simulator JSON shapes
+
+      - name: Build
+        run: swift build 2>&1 | tee build.log
+
+      - name: No warnings
         run: |
-          echo "::group::simctl list devices -j (head)"
-          xcrun simctl list devices -j | head -60
-          echo "::endgroup::"
-          echo "::group::simctl runtime list -j (head)"
-          xcrun simctl runtime list -j | head -60 || true
-          echo "::endgroup::"
-          echo "::group::simctl runtime help"
-          xcrun simctl runtime 2>&1 | head -60 || true
-          echo "::endgroup::"
-          echo "::group::simctl help delete/erase"
-          xcrun simctl help delete 2>&1 | head -30 || true
-          xcrun simctl help erase 2>&1 | head -30 || true
-          echo "::endgroup::"
-      - name: Home layout
+          if grep -n "warning:" build.log; then
+            echo "::error::The build has warnings"
+            exit 1
+          fi
+
+      - name: Test
+        run: swift test 2>&1 | tail -40
+
+      - name: Dry run on a stand-in home
         run: |
-          echo "HOME=$HOME"
-          ls -la ~ | head -60
-          echo "--- ~/Library/Caches"; ls ~/Library/Caches | head -80
-          echo "--- ~/Library/Developer"; ls ~/Library/Developer 2>/dev/null | head
-          echo "--- ~/Library/Developer/Xcode"; ls ~/Library/Developer/Xcode 2>/dev/null | head -30
-          echo "--- CoreSimulator"; ls ~/Library/Developer/CoreSimulator 2>/dev/null | head
-          echo "--- /Library/Developer/CoreSimulator"; ls -la /Library/Developer/CoreSimulator 2>/dev/null | head
-          echo "--- TCC probe"; (head -c 16 "$HOME/Library/Application Support/com.apple.TCC/TCC.db" | xxd | head -1) 2>&1 || true
-          echo "--- Trash probe"; ls -la ~/.Trash 2>&1 | head -5
-          echo "--- df"; df -h / | tail -1
+          python3 Scripts/make-demo-home.py "$RUNNER_TEMP/demo" --scale 0.2
+          CULL_HOME="$RUNNER_TEMP/demo/home" CULL_DAYS_AHEAD=400 COLUMNS=100 .build/debug/cull --verbose
+
+      - name: Real cull on the stand-in home
+        run: |
+          home="$RUNNER_TEMP/demo/home"
+          CULL_HOME="$home" CULL_DAYS_AHEAD=400 .build/debug/cull --apply --yes | tail -5
+          # Everything a person could not get back must still be there.
+          for precious in "Documents/Sketchbook/maquette-notes.pdf" "Pictures/studio/bronze-01.heic" \
+                          "Library/Messages/chat.db" ".ssh/config" "Developer/atrium-earth/.env" \
+                          "Developer/atrium-earth/.git/HEAD" "Developer/atrium-earth/src/App.tsx" \
+                          "Developer/clarity-web/node_modules/vite/index.js" \
+                          "Library/Application Support/Slack/Local Storage/leveldb/000005.ldb" \
+                          "Library/Caches/com.apple.Safari/WebKitCache/x" "Downloads/Xcode_26.2.xip"; do
+            test -e "$home/$precious" || { echo "::error::$precious was removed"; exit 1; }
+          done
+          # And the stale things must be gone.
+          for stale in "Developer/atrium-earth/node_modules" ".npm/_cacache/content-v2" \
+                       "Library/Developer/Xcode/DerivedData/Sniffari-abcdefghijklmnopqrstuvwxyzab"; do
+            test ! -e "$home/$stale" || { echo "::error::$stale was not culled"; exit 1; }
+          done
+          echo "Second pass:"
+          CULL_HOME="$home" CULL_DAYS_AHEAD=400 .build/debug/cull | tail -3
+
+      - name: Dry run on the runner's real home
+        run: COLUMNS=110 .build/debug/cull --verbose
