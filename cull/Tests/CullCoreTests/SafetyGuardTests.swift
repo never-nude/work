@@ -129,7 +129,7 @@ final class SafetyGuardTests: XCTestCase {
             "Library/Calendars/Calendar.sqlitedb",
             "Library/Group Containers/group.com.apple.notes/NoteStore.sqlite",
             "Library/Application Support/AddressBook/AddressBook-v22.abcddb",
-            "Library/Application Support/ThreadKeep/archive.sqlite",
+            "Library/Application Support/Archivist/archive.sqlite",
             "Library/Application Support/Slack/Local Storage/leveldb",
             "Library/Application Support/Slack/Cookies",
             "Library/Application Support/Code/User/workspaceStorage",

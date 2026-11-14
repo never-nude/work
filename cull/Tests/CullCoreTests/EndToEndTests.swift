@@ -9,7 +9,7 @@ final class EndToEndTests: XCTestCase {
     }
 
     private let staleBuild = "Library/Developer/Xcode/DerivedData/OldApp-abcdefghijklmnopqrstuvwxyzab"
-    private let freshBuild = "Library/Developer/Xcode/DerivedData/ThreadKeep-bcdefghijklmnopqrstuvwxyzabc"
+    private let freshBuild = "Library/Developer/Xcode/DerivedData/Archivist-bcdefghijklmnopqrstuvwxyzabc"
     private let deviceSupport = "Library/Developer/Xcode/iOS DeviceSupport"
     private let simulator = "Library/Developer/CoreSimulator/Devices/2CC7A2C1-E1A7-4633-911A-DB60BDEB97F0"
 
@@ -39,8 +39,8 @@ final class EndToEndTests: XCTestCase {
             "Library/Mobile Documents/com~apple~CloudDocs/notes.txt",
             "Library/Keychains/login.keychain-db",
             "Library/Preferences/com.some.app.plist",
-            "Library/Application Support/ThreadKeep/archive.sqlite",
-            "Library/Application Support/ThreadKeep/Cache/thumbnails.db",
+            "Library/Application Support/Archivist/archive.sqlite",
+            "Library/Application Support/Archivist/Cache/thumbnails.db",
             "Library/Application Support/Slack/Local Storage/leveldb/000005.ldb",
             "Library/Application Support/Slack/Cookies",
             "Library/Application Support/Slack/storage/root-state.json",
@@ -115,7 +115,7 @@ final class EndToEndTests: XCTestCase {
     /// Offered, but left alone unless explicitly selected.
     private var offeredOnly: [String] {
         [
-            "\(freshBuild)/Build/Products/Debug/ThreadKeep",
+            "\(freshBuild)/Build/Products/Debug/Archivist",
             "\(deviceSupport)/iPhone18,1 26.1 (23B85)/Symbols/x",
             "Developer/active/node_modules/react/index.js",
             "Library/Caches/mysterydaemon/state",
@@ -135,7 +135,7 @@ final class EndToEndTests: XCTestCase {
         // Folders that are emptied in place must survive as empty folders.
         fixture.file("Library/Caches/com.spotify.client/Data/second-chunk")
         // What makes the fresh things fresh.
-        fixture.touch("\(freshBuild)/Build/Products/Debug/ThreadKeep", daysAgo: 1)
+        fixture.touch("\(freshBuild)/Build/Products/Debug/Archivist", daysAgo: 1)
         fixture.touch("Developer/active/src/App.tsx", daysAgo: 1)
         fixture.touch("Downloads/just-arrived.zip", daysAgo: 1)
         fixture.touch("\(deviceSupport)/iPhone15,2 17.5 (21F90)", daysAgo: 300)
@@ -251,7 +251,7 @@ final class EndToEndTests: XCTestCase {
         XCTAssertEqual(second.defaultSelection, [], "a default cull leaves nothing pre-selected behind")
         XCTAssertEqual(second.categories(in: .safe).flatMap(\.items).filter(\.selectedByDefault), [])
         // The things that were deliberately left alone are still on offer.
-        XCTAssertNotNil(second.item("xcode.derivedData", titled: "ThreadKeep"))
+        XCTAssertNotNil(second.item("xcode.derivedData", titled: "Archivist"))
         XCTAssertNotNil(second.item("downloads.old", titled: "old-installer.dmg"))
     }
 

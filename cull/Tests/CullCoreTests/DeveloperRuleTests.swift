@@ -7,10 +7,10 @@ final class XcodeRuleTests: XCTestCase {
     func testStaleDerivedDataIsSelectedAndFreshIsNot() async throws {
         let fixture = try Fixture()
         let stale = "\(derivedData)/OldApp-abcdefghijklmnopqrstuvwxyzab"
-        let fresh = "\(derivedData)/ThreadKeep-bcdefghijklmnopqrstuvwxyzabc"
+        let fresh = "\(derivedData)/Archivist-bcdefghijklmnopqrstuvwxyzabc"
         fixture.file("\(stale)/Build/Products/Debug/OldApp.app/OldApp", bytes: 40_000)
         fixture.plist("\(stale)/info.plist", ["WorkspacePath": fixture.path("Developer/OldApp/OldApp.xcodeproj")])
-        fixture.file("\(fresh)/Build/Products/Debug/ThreadKeep.app/ThreadKeep", bytes: 20_000)
+        fixture.file("\(fresh)/Build/Products/Debug/Archivist.app/Archivist", bytes: 20_000)
         fixture.file("\(fresh)/Index.noindex/DataStore/v5/units/x", fresh: true)
         fixture.file("\(derivedData)/ModuleCache.noindex/ABC/Foundation.pcm")
 
@@ -22,7 +22,7 @@ final class XcodeRuleTests: XCTestCase {
         XCTAssertEqual(old.subtitle, "~/Developer/OldApp/OldApp.xcodeproj")
         XCTAssertEqual(old.lastUsedLabel, "Last built")
 
-        let active = try XCTUnwrap(report.item("xcode.derivedData", titled: "ThreadKeep"))
+        let active = try XCTUnwrap(report.item("xcode.derivedData", titled: "Archivist"))
         XCTAssertFalse(active.selectedByDefault, "a project built yesterday keeps its build data")
         let lastBuilt = try XCTUnwrap(active.lastUsed)
         XCTAssertEqual(fixture.now.timeIntervalSince(lastBuilt) / 86_400, 1, accuracy: 0.01)
@@ -96,12 +96,12 @@ final class XcodeRuleTests: XCTestCase {
 
     func testArchivesAreReviewOnlyAndGoToTheTrash() async throws {
         let fixture = try Fixture()
-        fixture.file("Library/Developer/Xcode/Archives/2025-03-01/ThreadKeep 3-1-25, 9.41 AM.xcarchive/dSYMs/x")
+        fixture.file("Library/Developer/Xcode/Archives/2025-03-01/Archivist 3-1-25, 9.41 AM.xcarchive/dSYMs/x")
         fixture.file("Library/Developer/Xcode/Archives/2025-03-01/notes.txt")
 
         let report = try await fixture.scan()
         let items = report.items("xcode.archives")
-        XCTAssertEqual(items.map(\.title), ["ThreadKeep 3-1-25, 9.41 AM"])
+        XCTAssertEqual(items.map(\.title), ["Archivist 3-1-25, 9.41 AM"])
         XCTAssertEqual(items.first?.action, .trash)
         XCTAssertEqual(items.first?.selectedByDefault, false)
         XCTAssertEqual(report.category("xcode.archives")?.tier, .review)

@@ -148,8 +148,8 @@ final class CacheRuleTests: XCTestCase {
     func testFoldersNamedCacheWithoutAChromiumProfileAreIgnored() async throws {
         let fixture = try Fixture()
         // Looks cache-like, but nothing says Chromium, so it might be anything.
-        fixture.file("Library/Application Support/ThreadKeep/Cache/thumbnails.db")
-        fixture.file("Library/Application Support/ThreadKeep/archive.sqlite")
+        fixture.file("Library/Application Support/Archivist/Cache/thumbnails.db")
+        fixture.file("Library/Application Support/Archivist/archive.sqlite")
         fixture.file("Library/Application Support/SomeTool/logs/a.log")
 
         let report = try await fixture.scan()

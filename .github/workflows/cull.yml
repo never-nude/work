@@ -69,16 +69,16 @@ jobs:
           CULL_HOME="$home" CULL_DAYS_AHEAD=400 .build/debug/cull --apply --yes | tail -5
           # Everything a person could not get back must still be there.
           for precious in "Documents/Sketchbook/maquette-notes.pdf" "Pictures/studio/bronze-01.heic" \
-                          "Library/Messages/chat.db" ".ssh/config" "Developer/atrium-earth/.env" \
-                          "Developer/atrium-earth/.git/HEAD" "Developer/atrium-earth/src/App.tsx" \
-                          "Developer/clarity-web/node_modules/vite/index.js" \
+                          "Library/Messages/chat.db" ".ssh/config" "Developer/gallery-site/.env" \
+                          "Developer/gallery-site/.git/HEAD" "Developer/gallery-site/src/App.tsx" \
+                          "Developer/journal-web/node_modules/vite/index.js" \
                           "Library/Application Support/Slack/Local Storage/leveldb/000005.ldb" \
                           "Library/Caches/com.apple.Safari/WebKitCache/x" "Downloads/Xcode_26.2.xip"; do
             test -e "$home/$precious" || { echo "::error::$precious was removed"; exit 1; }
           done
           # And the stale things must be gone.
-          for stale in "Developer/atrium-earth/node_modules" ".npm/_cacache/content-v2" \
-                       "Library/Developer/Xcode/DerivedData/Sniffari-abcdefghijklmnopqrstuvwxyzab"; do
+          for stale in "Developer/gallery-site/node_modules" ".npm/_cacache/content-v2" \
+                       "Library/Developer/Xcode/DerivedData/Wayfinder-abcdefghijklmnopqrstuvwxyzab"; do
             test ! -e "$home/$stale" || { echo "::error::$stale was not culled"; exit 1; }
           done
           echo "Second pass:"
@@ -153,8 +153,8 @@ jobs:
 
           # Last, because it changes the stand-in home: cull from inside the app, then photograph the result.
           CULL_SNAPSHOT="$PWD/shots/window-culled.png" CULL_SNAPSHOT_CULL=1 snapshot
-          test ! -e "$CULL_HOME/Developer/atrium-earth/node_modules" || { echo "::error::the app did not cull"; exit 1; }
-          test -e "$CULL_HOME/Developer/atrium-earth/src/App.tsx" || { echo "::error::the app removed project sources"; exit 1; }
+          test ! -e "$CULL_HOME/Developer/gallery-site/node_modules" || { echo "::error::the app did not cull"; exit 1; }
+          test -e "$CULL_HOME/Developer/gallery-site/src/App.tsx" || { echo "::error::the app removed project sources"; exit 1; }
           test -e "$CULL_HOME/Library/Messages/chat.db" || { echo "::error::the app removed something precious"; exit 1; }
 
           sips -g pixelWidth -g pixelHeight shots/*.png

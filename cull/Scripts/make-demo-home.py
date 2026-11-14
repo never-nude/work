@@ -103,13 +103,13 @@ def build(home):
     home.file("Library/Logs/CoreSimulator/ABCD/system.log", 75)
 
     # --- Rebuildable ------------------------------------------------------------------------
-    for name, megabytes in [("Sniffari", 3_100), ("SoundFind", 2_400), ("Clarity", 1_250), ("Loopsmith", 610)]:
+    for name, megabytes in [("Wayfinder", 3_100), ("Tuner", 2_400), ("Journal", 1_250), ("Flipbook", 610)]:
         folder = f"{derived}/{name}-{'abcdefghijklmnopqrstuvwxyzab'}"
         home.file(f"{folder}/Build/Products/Debug/{name}.app/{name}", megabytes)
         home.plist(f"{folder}/info.plist", {"WorkspacePath": home.path(f"Developer/{name}/{name}.xcodeproj")})
-    active = f"{derived}/ThreadKeep-bcdefghijklmnopqrstuvwxyzabc"
-    home.file(f"{active}/Build/Products/Debug/ThreadKeep.app/ThreadKeep", 2_700)
-    home.fresh(f"{active}/Build/Products/Debug/ThreadKeep.app/ThreadKeep", 0.5)
+    active = f"{derived}/Archivist-bcdefghijklmnopqrstuvwxyzabc"
+    home.file(f"{active}/Build/Products/Debug/Archivist.app/Archivist", 2_700)
+    home.fresh(f"{active}/Build/Products/Debug/Archivist.app/Archivist", 0.5)
     home.file(f"{derived}/ModuleCache.noindex/3ABC/Foundation.pcm", 1_300)
 
     ios = "Library/Developer/Xcode/iOS DeviceSupport"
@@ -121,22 +121,22 @@ def build(home):
     home.fresh(f"{ios}/iPhone18,1 26.1 (23B85)", 12)
     home.file("Library/Developer/Xcode/UserData/Previews/Simulator Devices/ABCD/data/x", 940)
 
-    for project, megabytes in [("atrium-earth", 870), ("wpcna-site", 520), ("formgallery-next", 1_150)]:
+    for project, megabytes in [("gallery-site", 870), ("neighborhood-site", 520), ("portfolio-next", 1_150)]:
         home.text(f"Developer/{project}/package.json", "{}")
         home.text(f"Developer/{project}/package-lock.json", "{}")
         home.text(f"Developer/{project}/src/App.tsx", "export default function App() { return null }\n")
         home.file(f"Developer/{project}/node_modules/react/index.js", megabytes)
-    home.file("Developer/formgallery-next/.next/cache/webpack/client.pack", 380)
+    home.file("Developer/portfolio-next/.next/cache/webpack/client.pack", 380)
     # Being worked on right now: offered, not pre-selected.
-    home.text("Developer/clarity-web/package.json", "{}")
-    home.text("Developer/clarity-web/package-lock.json", "{}")
-    home.text("Developer/clarity-web/src/main.tsx", "")
-    home.fresh("Developer/clarity-web/src/main.tsx", 0.2)
-    home.file("Developer/clarity-web/node_modules/vite/index.js", 430)
-    home.text("Developer/housescan/pyproject.toml", "[project]\nname = \"housescan\"\n")
-    home.text("Developer/housescan/uv.lock", "version = 1\n")
-    home.text("Developer/housescan/.venv/pyvenv.cfg", "home = /usr/bin\n")
-    home.file("Developer/housescan/.venv/lib/python3.13/site-packages/numpy/core.so", 690)
+    home.text("Developer/journal-web/package.json", "{}")
+    home.text("Developer/journal-web/package-lock.json", "{}")
+    home.text("Developer/journal-web/src/main.tsx", "")
+    home.fresh("Developer/journal-web/src/main.tsx", 0.2)
+    home.file("Developer/journal-web/node_modules/vite/index.js", 430)
+    home.text("Developer/floorplan/pyproject.toml", "[project]\nname = \"floorplan\"\n")
+    home.text("Developer/floorplan/uv.lock", "version = 1\n")
+    home.text("Developer/floorplan/.venv/pyvenv.cfg", "home = /usr/bin\n")
+    home.file("Developer/floorplan/.venv/lib/python3.13/site-packages/numpy/core.so", 690)
     home.file("Library/Caches/ms-playwright/chromium-1187/chrome-mac/Chromium", 480)
 
     # --- Your call --------------------------------------------------------------------------
@@ -151,7 +151,7 @@ def build(home):
     backup = f"{support}/MobileSync/Backup/00008140-000A1B2C3D4E5F6A"
     home.file(f"{backup}/Manifest.db", 4_200)
     home.plist(f"{backup}/Info.plist", {"Device Name": "iPhone", "Product Name": "iPhone 15 Pro"})
-    home.file("Library/Developer/Xcode/Archives/2025-09-14/ThreadKeep 9-14-25, 4.02 PM.xcarchive/dSYMs/x", 310)
+    home.file("Library/Developer/Xcode/Archives/2025-09-14/Archivist 9-14-25, 4.02 PM.xcarchive/dSYMs/x", 310)
 
     # --- Never offered ----------------------------------------------------------------------
     home.file("Documents/Sketchbook/maquette-notes.pdf", 12)
@@ -159,8 +159,8 @@ def build(home):
     home.file("Library/Messages/chat.db", 40)
     home.text(".ssh/config", "Host *\n")
     home.text(".zshrc", "")
-    home.text("Developer/atrium-earth/.env", "KEY=value\n")
-    home.text("Developer/atrium-earth/.git/HEAD", "ref: refs/heads/main\n")
+    home.text("Developer/gallery-site/.env", "KEY=value\n")
+    home.text("Developer/gallery-site/.git/HEAD", "ref: refs/heads/main\n")
 
 
 def main():

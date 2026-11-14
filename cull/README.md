@@ -84,7 +84,7 @@ cull --apply --include rebuildable,trash    # also take the whole rebuildable ti
 ```
 
 ```sh
-cull --never ~/Developer/ThreadKeep         # never offer anything inside this folder
+cull --never ~/Developer/Archivist         # never offer anything inside this folder
 ```
 
 `cull --help` lists the rest (`--only`, `--exclude`, `--stale-days`, `--roots`, `--json`, `--list`). `--include` and `--exclude` take category ids from `cull --list`, or a single item's id from `cull --json`. When run from Terminal it uses Terminal's Full Disk Access.
