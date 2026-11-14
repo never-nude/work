@@ -52,6 +52,23 @@ final class AppModel {
 
     var canCull: Bool { phase == .ready && !selection.isEmpty }
 
+    /// How full the disk will still be once the current selection is gone.
+    var pressureAfterCull: DiskSpace.Pressure? {
+        guard let disk else { return nil }
+        return DiskSpace(total: disk.total, free: disk.available + selectedBytesFreedNow).pressure
+    }
+
+    /// The largest things on offer that are not selected, for when the selection is not enough.
+    var biggestUnselected: [(item: CullItem, category: String)] {
+        guard let report else { return [] }
+        let candidates = report.categories.flatMap { category in
+            category.items
+                .filter { !selection.contains($0.id) && $0.bytes >= 500_000_000 }
+                .map { (item: $0, category: category.title) }
+        }
+        return Array(candidates.sorted { $0.item.bytes > $1.item.bytes }.prefix(3))
+    }
+
     var now: Date { environment?.now ?? Date() }
 
     func state(of category: CullCategory) -> CheckState {
@@ -87,7 +104,7 @@ final class AppModel {
             return
         }
         self.environment = environment
-        disk = DiskSpace.of(path: environment.home)
+        disk = currentDisk(in: environment)
         volumeName = DiskSpace.volumeName(of: environment.home) ?? "Disk"
         scanProgress = nil
         phase = .scanning
@@ -108,6 +125,11 @@ final class AppModel {
         }
     }
 
+    private func currentDisk(in environment: CullEnvironment) -> DiskSpace? {
+        if environment.isSandbox, let pretend = Snapshot.pretendDisk { return pretend }
+        return DiskSpace.of(path: environment.home)
+    }
+
     private func receive(_ progress: ScanProgress, generation: Int) {
         guard generation == scanGeneration, phase == .scanning else { return }
         // Results arrive out of order across threads; never let the bar move backwards.
@@ -118,7 +140,7 @@ final class AppModel {
     private func finishScan(_ report: ScanReport, generation: Int) {
         guard generation == scanGeneration, !report.cancelled else { return }
         self.report = report
-        disk = report.disk ?? disk
+        if let environment { disk = currentDisk(in: environment) ?? report.disk }
         selection = report.defaultSelection
         // Open what has a decision in it: anything only partly selected.
         expanded = Set(report.categories.filter { state(of: $0) == .mixed }.map(\.id))

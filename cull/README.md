@@ -51,7 +51,7 @@ Rules decide what is worth culling. A separate safety guard, with its own lists,
 - Personal files (downloads, backups, archives) are moved to the Trash, never deleted.
 - Symlinks are never followed. A cache folder that has been relocated through a symlink is invisible to Cull.
 - Simulators are removed through `xcrun simctl`, not by deleting their folders.
-- It refuses to delete as root.
+- It refuses to run as root, and will only treat a folder as "home" if that folder belongs to you.
 
 `swift test` runs the suite that holds it to this, including a test that builds a lived-in home folder, culls everything Cull offers, and checks that every precious file is still there.
 
@@ -118,6 +118,13 @@ open --env CULL_HOME=/tmp/cull-demo/home --env CULL_DAYS_AHEAD=400 build/Cull.ap
 ## Adding a rule
 
 Add a `Rule` in one of the `Rules+*.swift` files and list it in `Catalog.all`. If it reaches somewhere new, the safety guard will refuse it until that location is added to the guard's own allow list as well. That double entry is deliberate.
+
+## Good to know
+
+- With Time Machine on, macOS can hold freshly deleted space in a local snapshot for up to a day. Cull reports "available" space the way Finder does (free plus purgeable), so the number still goes up; macOS hands the space over as soon as something needs it.
+- Sizes are what is allocated on disk. Where files share storage (APFS clones, which Xcode and some package managers use), the real gain can be smaller than the estimate, so the summary after a cull reports the actual change in available space.
+- The first scan without Full Disk Access makes macOS ask about Desktop, Documents and Downloads. Saying no just means those folders are skipped.
+- Culling something that is in use is harmless but untidy, so Cull leaves the caches of running apps unselected and says which app to quit.
 
 ## Not there yet
 

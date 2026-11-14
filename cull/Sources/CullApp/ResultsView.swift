@@ -60,6 +60,7 @@ struct ResultsView: View {
                     if !report.hasFullDiskAccess {
                         FullDiskAccessHint()
                     }
+                    HeadroomHint()
                     ForEach(Tier.allCases, id: \.self) { tier in
                         let categories = report.categories(in: tier)
                         if !categories.isEmpty {
@@ -364,6 +365,43 @@ private struct FullDiskAccessHint: View {
             }
             .padding(14)
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+            .padding(.horizontal, Theme.rowInset)
+            .padding(.top, 14)
+            .padding(.bottom, 6)
+        }
+    }
+}
+
+/// Shown when the disk would still be short of room after culling everything selected:
+/// points at the biggest things that are on offer but not ticked.
+private struct HeadroomHint: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let suggestions = model.biggestUnselected
+        if let pressure = model.pressureAfterCull, pressure != .comfortable, !suggestions.isEmpty {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Image(systemName: "lightbulb.fill")
+                    .foregroundStyle(Theme.color(for: pressure))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(pressure == .critical
+                        ? "Still critically low after this cull"
+                        : "Still tight after this cull")
+                        .font(.headline)
+                    Text("The biggest things not selected: " + suggestions.map {
+                        "\($0.item.title) in \($0.category) (\(Format.bytes($0.item.bytes)))"
+                    }.joined(separator: ", ") + ".")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(14)
+            .background(
+                Theme.color(for: pressure).opacity(0.09),
+                in: RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+            )
             .padding(.horizontal, Theme.rowInset)
             .padding(.top, 14)
             .padding(.bottom, 6)
