@@ -1,0 +1,259 @@
+name: cull
+
+# Builds and tests the Cull macOS app (cull/). Only runs when cull/ changes.
+on:
+  push:
+    paths:
+      - "cull/**"
+      - ".github/workflows/cull.yml"
+  workflow_dispatch:
+    inputs:
+      simulators:
+        description: "Also exercise the simulator rules for real (deletes one runtime on the runner)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cull-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: cull
+    # Naming the shell turns on pipefail, so `swift build | tee` fails when the build does.
+    shell: bash
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Build
+        run: swift build 2>&1 | tee build.log
+
+      - name: No warnings
+        run: |
+          if grep -n "warning:" build.log; then
+            echo "::error::The build has warnings"
+            exit 1
+          fi
+
+      - name: Test
+        run: |
+          set +e
+          swift test > test.log 2>&1
+          status=$?
+          # Show what matters: failures in full, then the totals.
+          grep -E "error:|' failed|Executed [0-9]+ tests" test.log | sort -u | head -80
+          # Nothing is meant to be skipped on a Mac, so a skip is a test that silently stopped testing.
+          if grep -E "Executed [0-9]+ tests?, with [0-9]+ tests? skipped" test.log; then
+            echo "::error::Some tests were skipped"
+            exit 1
+          fi
+          exit $status
+
+      - name: Dry run on a stand-in home
+        run: |
+          python3 Scripts/make-demo-home.py "$RUNNER_TEMP/demo" --scale 0.2
+          CULL_HOME="$RUNNER_TEMP/demo/home" CULL_DAYS_AHEAD=400 COLUMNS=100 .build/debug/cull --verbose
+
+      - name: Real cull on the stand-in home
+        run: |
+          home="$RUNNER_TEMP/demo/home"
+          CULL_HOME="$home" CULL_DAYS_AHEAD=400 .build/debug/cull --apply --yes | tail -5
+          # Everything a person could not get back must still be there.
+          for precious in "Documents/Sketchbook/maquette-notes.pdf" "Pictures/studio/bronze-01.heic" \
+                          "Library/Messages/chat.db" ".ssh/config" "Developer/gallery-site/.env" \
+                          "Developer/gallery-site/.git/HEAD" "Developer/gallery-site/src/App.tsx" \
+                          "Developer/journal-web/node_modules/vite/index.js" \
+                          "Library/Application Support/Slack/Local Storage/leveldb/000005.ldb" \
+                          "Library/Caches/com.apple.Safari/WebKitCache/x" "Downloads/Xcode_26.2.xip"; do
+            test -e "$home/$precious" || { echo "::error::$precious was removed"; exit 1; }
+          done
+          # And the stale things must be gone.
+          for stale in "Developer/gallery-site/node_modules" ".npm/_cacache/content-v2" \
+                       "Library/Developer/Xcode/DerivedData/Wayfinder-abcdefghijklmnopqrstuvwxyzab"; do
+            test ! -e "$home/$stale" || { echo "::error::$stale was not culled"; exit 1; }
+          done
+          echo "Second pass:"
+          CULL_HOME="$home" CULL_DAYS_AHEAD=400 .build/debug/cull | tail -3
+
+      - name: Dry run on the runner's real home
+        run: COLUMNS=110 .build/debug/cull --verbose
+
+      - name: Real cull on the runner's own home
+        run: |
+          cull=.build/debug/cull
+          # Package caches are emptied in place: the folder stays, its contents go.
+          $cull --apply --yes --only caches.packages | tail -3
+          test -d ~/Library/Caches/Homebrew
+          test -z "$(ls -A ~/Library/Caches/Homebrew)"
+
+          # A real file through the real Trash, then out of it.
+          head -c 3000000 /dev/urandom > ~/Downloads/cull-ci-check.bin
+          $cull --apply --yes --only downloads.old --download-days 0 --include downloads.old | tail -3
+          test ! -e ~/Downloads/cull-ci-check.bin
+          test -e ~/.Trash/cull-ci-check.bin
+          $cull --apply --yes --only trash --include trash | tail -3
+          test ! -e ~/.Trash/cull-ci-check.bin
+
+      - name: Bundle and install the app
+        run: |
+          ./build.sh --install
+          plutil -lint build/Cull.app/Contents/Info.plist
+          codesign --verify --verbose=2 build/Cull.app
+          sips -g pixelWidth -g pixelHeight Resources/AppIcon.icns
+          build/cull --version
+          test -d /Applications/Cull.app
+          codesign --verify /Applications/Cull.app
+          # Installing again replaces our own earlier build...
+          ./build.sh --install | tail -3
+          # ...but never an unrelated app that happens to share the name.
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.example.other" /Applications/Cull.app/Contents/Info.plist
+          if ./build.sh --install; then echo "::error::build.sh replaced an app that is not Cull"; exit 1; fi
+          rm -rf /Applications/Cull.app
+
+      - name: Launch the app on the stand-in home and photograph it
+        run: |
+          python3 Scripts/make-demo-home.py "$RUNNER_TEMP/demo" --scale 0.2 --force
+          mkdir -p shots
+          export CULL_HOME="$RUNNER_TEMP/demo/home" CULL_DAYS_AHEAD=400
+          app=build/Cull.app/Contents/MacOS/Cull
+
+          # With CULL_SNAPSHOT set the app saves a picture of its own window after the first scan, then quits.
+          snapshot() {
+            "$app" >> app.log 2>&1 &
+            local pid=$!
+            for _ in $(seq 1 45); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+            if kill -0 "$pid" 2>/dev/null; then
+              echo "::error::Cull.app did not finish its snapshot"; kill "$pid"; cat app.log; exit 1
+            fi
+          }
+          # CULL_PRETEND_DISK shows the stand-in home on a nearly full disk, which is what the app is for.
+          CULL_SNAPSHOT="$PWD/shots/window.png" CULL_PRETEND_DISK=494,11.8 snapshot
+          CULL_SNAPSHOT="$PWD/shots/window-dark.png" CULL_PRETEND_DISK=494,11.8 CULL_APPEARANCE=dark snapshot
+          CULL_SNAPSHOT="$PWD/shots/window-review.png" CULL_SNAPSHOT_SCROLL=review snapshot
+          CULL_SNAPSHOT="$PWD/shots/window-expanded.png" CULL_SNAPSHOT_EXPAND=1 snapshot
+          CULL_SNAPSHOT="$PWD/shots/window-settings.png" CULL_SNAPSHOT_SETTINGS=1 snapshot
+          # Cull pressed on a list that has gone stale: it rescans instead of deleting, and says so.
+          CULL_SNAPSHOT="$PWD/shots/window-stale.png" CULL_SNAPSHOT_STALE=1 CULL_PRETEND_DISK=494,11.8 snapshot
+          test -e "$CULL_HOME/Developer/gallery-site/node_modules" || { echo "::error::a stale list was acted on"; exit 1; }
+          test -s shots/window.png || { echo "::error::no snapshot was written"; cat app.log; exit 1; }
+          test -s shots/window-stale.png || { echo "::error::no snapshot of the stale-list path"; cat app.log; exit 1; }
+
+          # And the real screen with the app running, light and dark, if the runner allows screen capture.
+          capture() {
+            CULL_PRETEND_DISK=494,11.8 "$app" >> app.log 2>&1 &
+            local pid=$!
+            sleep 9
+            kill -0 "$pid" 2>/dev/null || { echo "::error::Cull.app exited early"; cat app.log; exit 1; }
+            screencapture -x "shots/$1.png" || echo "screencapture unavailable"
+            kill "$pid" || true
+            sleep 1
+          }
+          capture screen
+          CULL_APPEARANCE=dark capture screen-dark
+
+          # Last, because it changes the stand-in home: cull from inside the app, then photograph the result.
+          CULL_SNAPSHOT="$PWD/shots/window-culled.png" CULL_SNAPSHOT_CULL=1 snapshot
+          test ! -e "$CULL_HOME/Developer/gallery-site/node_modules" || { echo "::error::the app did not cull"; exit 1; }
+          test -e "$CULL_HOME/Developer/gallery-site/src/App.tsx" || { echo "::error::the app removed project sources"; exit 1; }
+          test -e "$CULL_HOME/Library/Messages/chat.db" || { echo "::error::the app removed something precious"; exit 1; }
+
+          sips -g pixelWidth -g pixelHeight shots/*.png
+          echo "--- app log"; cat app.log
+
+      - name: Put small copies of the snapshots in the log
+        run: |
+          # The artifact store is not reachable from every network, so the log carries a copy too.
+          # Wide lines keep this to a few hundred log lines.
+          emit() {
+            echo "-----BEGIN CULL SHOT $1-----"
+            base64 -i "$2" | fold -w 2000
+            echo "-----END CULL SHOT $1-----"
+          }
+          for name in screen-dark window-settings window-culled window-stale; do
+            if [ -s "shots/$name.png" ]; then
+              sips -s format jpeg -s formatOptions 65 "shots/$name.png" --out "shots/$name.jpg" > /dev/null
+              emit "$name" "shots/$name.jpg"
+            fi
+          done
+          emit window shots/window.png
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cull-screenshots
+          path: cull/shots
+          if-no-files-found: warn
+
+  simulators:
+    # Proves the three `xcrun simctl` actions against real simulators. It deletes a runtime,
+    # so it only runs when asked: dispatch with "simulators" ticked, or put [simulators] in a commit message.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.simulators) ||
+      contains(github.event.head_commit.message, '[simulators]')
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the CLI
+        run: swift build --product cull
+
+      - name: Erase one simulator
+        run: |
+          cull=.build/debug/cull
+          $cull --json --only sim.data --simulator-mb 1 > data.json
+          item=$(jq -r '[.report.categories[].items[]] | first | .id // empty' data.json)
+          test -n "$item" || { echo "::error::no simulator was offered for erasing"; exit 1; }
+          echo "Erasing $item"
+          $cull --apply --yes --only sim.data --simulator-mb 1 --include "$item" | tail -4
+
+      - name: Delete one runtime
+        run: |
+          cull=.build/debug/cull
+          # The smallest runtime that has simulators, so the next step has something to find.
+          xcrun simctl list devices -j > devices.json
+          xcrun simctl runtime list -j > installed.json
+          jq -r '.devices | to_entries[] | select(.value | length > 0) | .key' devices.json > in-use.txt
+          uuid=$(jq -r --rawfile used in-use.txt '
+            ($used | split("\n")) as $names
+            | [ .[] | select(.deletable != false) | select(.runtimeIdentifier as $r | $names | index($r)) ]
+            | min_by(.sizeBytes) | .identifier' installed.json)
+          item="sim.runtimes|$uuid"
+          echo "Deleting $item"
+          xcrun simctl runtime list | head -20
+          # It has to be on offer in the first place.
+          $cull --json --only sim.runtimes | jq -e --arg id "$item" '[.report.categories[].items[].id] | index($id)' > /dev/null
+          $cull --apply --yes --only sim.runtimes --include "$item" | tail -4
+          # Deletion is finished by a background service; give it a moment.
+          for _ in $(seq 1 30); do
+            xcrun simctl runtime list -j | jq -e --arg id "$uuid" 'has($id) | not' > /dev/null && break
+            sleep 4
+          done
+          xcrun simctl runtime list -j | jq -e --arg id "$uuid" 'has($id) | not' > /dev/null \
+            || { echo "::error::the runtime is still installed"; exit 1; }
+
+      - name: Delete the simulators that runtime left behind
+        run: |
+          cull=.build/debug/cull
+          $cull --only sim.unavailable --verbose
+          stranded=$(xcrun simctl list devices unavailable -j | jq '[.devices[][]] | length')
+          echo "Unavailable before: $stranded"
+          test "$stranded" -gt 0 || { echo "::error::deleting the runtime stranded no simulators"; exit 1; }
+          $cull --apply --yes --only sim.unavailable | tail -4
+          left=$(xcrun simctl list devices unavailable -j | jq '[.devices[][]] | length')
+          echo "Unavailable after: $left"
+          test "$left" -eq 0
