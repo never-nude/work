@@ -176,6 +176,42 @@ final class CullerTests: XCTestCase {
         XCTAssertEqual(fixture.snapshot(), before, "nothing may change")
     }
 
+    func testBuildArtifactsNeedTheirManifestAtDeletionTimeToo() async throws {
+        let fixture = try Fixture()
+        // Folders with artifact names, but nothing beside them that says what they are.
+        fixture.file("Documents/Research/target/findings.pdf")
+        fixture.file("Documents/Recipes/node_modules/grandmas-notes.txt")
+        fixture.file("Developer/app/venv/not-really-an-environment.txt")
+        fixture.file("Developer/tool/.build/output")
+        // A file, not a folder, where an artifact was expected.
+        fixture.file("Developer/site/package.json")
+        fixture.file("Developer/site/node_modules")
+        // And the real thing, which must still go.
+        fixture.file("Developer/real/package.json")
+        fixture.file("Developer/real/node_modules/react/index.js")
+        fixture.file("Developer/pkg/Package.swift")
+        fixture.file("Developer/pkg/.build/debug/pkg")
+        fixture.file("Developer/py/.venv/pyvenv.cfg")
+        fixture.file("Developer/ios/App.xcodeproj/project.pbxproj")
+        fixture.file("Developer/ios/DerivedData/Build/x")
+
+        func artifact(_ relative: String) -> CullItem {
+            let root = fixture.path(String(relative.split(separator: "/")[0]))
+            let name = Posix.lastComponent(of: relative)
+            return item(fixture, [relative], action: .delete, scope: .artifact(root: root, names: [name]))
+        }
+        let forged = ["Documents/Research/target", "Documents/Recipes/node_modules", "Developer/app/venv",
+                      "Developer/tool/.build", "Developer/site/node_modules"]
+        let genuine = ["Developer/real/node_modules", "Developer/pkg/.build", "Developer/py/.venv", "Developer/ios/DerivedData"]
+
+        let summary = try await cull(fixture, (forged + genuine).map(artifact))
+        XCTAssertEqual(summary.outcomes.prefix(forged.count).map(\.status), Array(repeating: .failed, count: forged.count))
+        XCTAssertEqual(summary.outcomes.suffix(genuine.count).map(\.status), Array(repeating: .removed, count: genuine.count))
+        for relative in forged { XCTAssertTrue(fixture.exists(relative), "\(relative) must be left alone") }
+        for relative in genuine { XCTAssertFalse(fixture.exists(relative), "\(relative) should be gone") }
+        XCTAssertTrue(fixture.exists("Documents/Research/target/findings.pdf"))
+    }
+
     func testItemsWithoutAScopeAreRefused() async throws {
         let fixture = try Fixture()
         fixture.file("Library/Caches/com.some.app/x")

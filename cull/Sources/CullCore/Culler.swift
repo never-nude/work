@@ -186,6 +186,13 @@ public final class Culler: Sendable {
             return .refused("Refused \(shown): it is reached through a symlink")
         }
 
+        // A build artifact is only believed while the manifest that explains it still sits beside it.
+        if case .artifact = scope {
+            guard stat.kind == .directory, Self.artifactIsVouchedFor(path) else {
+                return .refused("Refused \(shown): nothing beside it says it is a build artifact")
+            }
+        }
+
         do {
             switch action {
             case .delete:
@@ -226,6 +233,31 @@ public final class Culler: Sendable {
             return .problem("\(shown): \(error.localizedDescription)", removedSome: false)
         }
         return .done
+    }
+
+    /// The scanner only proposes `node_modules` next to a `package.json`, `.build` next to a
+    /// `Package.swift`, and so on. This asks the same question again, independently, at deletion time.
+    static func artifactIsVouchedFor(_ path: String) -> Bool {
+        let project = Posix.parent(of: path)
+        func beside(_ name: String) -> Bool { Posix.info(at: Posix.join(project, name)) != nil }
+        switch Posix.lastComponent(of: path) {
+        case "node_modules", ".next", ".nuxt", ".svelte-kit", ".turbo", ".parcel-cache", ".angular":
+            return beside("package.json")
+        case ".build":
+            return beside("Package.swift")
+        case "Pods":
+            return beside("Podfile")
+        case "target":
+            return beside("Cargo.toml")
+        case ".venv", "venv":
+            return Posix.info(at: Posix.join(path, "pyvenv.cfg")) != nil
+        case "DerivedData":
+            return beside("Package.swift") || (Posix.entries(of: project) ?? []).contains {
+                $0.hasSuffix(".xcodeproj") || $0.hasSuffix(".xcworkspace")
+            }
+        default:
+            return false
+        }
     }
 
     /// Removes a file, a symlink (the link, never its target), or a whole tree.
