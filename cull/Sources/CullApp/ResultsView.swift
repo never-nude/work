@@ -51,51 +51,51 @@ struct ResultsView: View {
             )
         } else {
             ScrollViewReader { scroller in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                    if let summary = model.lastSummary {
-                        SummaryBanner(summary: summary)
-                            .padding(.horizontal, Theme.rowInset)
-                            .padding(.top, 14)
-                            .padding(.bottom, 6)
-                    }
-                    if !report.hasFullDiskAccess {
-                        FullDiskAccessHint()
-                    }
-                    HeadroomHint()
-                    ForEach(Tier.allCases, id: \.self) { tier in
-                        let categories = report.categories(in: tier)
-                        if !categories.isEmpty {
-                            Section {
-                                ForEach(categories) { category in
-                                    CategoryRow(category: category)
-                                    if model.expanded.contains(category.id) {
-                                        ForEach(category.items) { item in
-                                            ItemRow(item: item, showsApp: Self.appCategories.contains(category.id))
-                                        }
-                                    }
-                                    Divider()
-                                        .padding(.leading, Theme.rowInset + 34)
-                                }
-                            } header: {
-                                TierHeader(tier: tier, total: categories.reduce(0) { $0 + $1.totalBytes })
-                            }
-                            .id(tier.rawValue)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                        if let summary = model.lastSummary {
+                            SummaryBanner(summary: summary)
+                                .padding(.horizontal, Theme.rowInset)
+                                .padding(.top, 14)
+                                .padding(.bottom, 6)
                         }
+                        if !report.hasFullDiskAccess {
+                            FullDiskAccessHint()
+                        }
+                        HeadroomHint()
+                        ForEach(Tier.allCases, id: \.self) { tier in
+                            let categories = report.categories(in: tier)
+                            if !categories.isEmpty {
+                                Section {
+                                    ForEach(categories) { category in
+                                        CategoryRow(category: category)
+                                        if model.expanded.contains(category.id) {
+                                            ForEach(category.items) { item in
+                                                ItemRow(item: item, showsApp: Self.appCategories.contains(category.id))
+                                            }
+                                        }
+                                        Divider()
+                                            .padding(.leading, Theme.rowInset + 34)
+                                    }
+                                } header: {
+                                    TierHeader(tier: tier, total: categories.reduce(0) { $0 + $1.totalBytes })
+                                }
+                                .id(tier.rawValue)
+                            }
+                        }
+                        if !report.advisories.isEmpty {
+                            AdvisoryList(advisories: report.advisories)
+                        }
+                        FooterNotes(report: report)
+                            .id("footer")
                     }
-                    if !report.advisories.isEmpty {
-                        AdvisoryList(advisories: report.advisories)
-                    }
-                    FooterNotes(report: report)
-                        .id("footer")
                 }
-            }
-            .task {
-                // Snapshots can ask to start further down the list.
-                guard let target = Snapshot.scrollTarget else { return }
-                try? await Task.sleep(for: .milliseconds(400))
-                scroller.scrollTo(target, anchor: .top)
-            }
+                .task {
+                    // Snapshots can ask to start further down the list.
+                    guard let target = Snapshot.scrollTarget else { return }
+                    try? await Task.sleep(for: .milliseconds(400))
+                    scroller.scrollTo(target, anchor: .top)
+                }
             }
         }
     }

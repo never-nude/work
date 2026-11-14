@@ -81,7 +81,11 @@ cull --apply --yes          # no questions: for scripts and Shortcuts
 cull --apply --include rebuildable,trash    # also take the whole rebuildable tier and empty the Trash
 ```
 
-`cull --help` lists the rest (`--only`, `--exclude`, `--never`, `--stale-days`, `--roots`, `--json`, `--list`). When run from Terminal it uses Terminal's Full Disk Access.
+```sh
+cull --never ~/Developer/ThreadKeep         # never offer anything inside this folder
+```
+
+`cull --help` lists the rest (`--only`, `--exclude`, `--stale-days`, `--roots`, `--json`, `--list`). `--include` and `--exclude` take category ids from `cull --list`, or a single item's id from `cull --json`. When run from Terminal it uses Terminal's Full Disk Access.
 
 ## Try it without risk
 
@@ -111,7 +115,7 @@ open --env CULL_HOME=/tmp/cull-demo/home --env CULL_DAYS_AHEAD=400 build/Cull.ap
   - `Posix.swift`: directory walking and sizing that never follows a symlink.
 - `Sources/cull/`: the command-line tool.
 - `Sources/CullApp/`: the SwiftUI app.
-- `Tests/CullCoreTests/`: the test suite. It runs on Linux as well as macOS.
+- `Tests/`: the test suites for the engine and the CLI. They run on Linux as well as macOS.
 - `Scripts/make-demo-home.py`: the stand-in home folder.
 - `Resources/AppIcon.svg`: icon source. `AppIcon.icns` is rendered from it.
 

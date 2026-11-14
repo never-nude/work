@@ -7,6 +7,7 @@ var targets: [Target] = [
     .target(name: "CullCore", path: "Sources/CullCore"),
     .executableTarget(name: "cull", dependencies: ["CullCore"], path: "Sources/cull"),
     .testTarget(name: "CullCoreTests", dependencies: ["CullCore"], path: "Tests/CullCoreTests"),
+    .testTarget(name: "CullCommandTests", dependencies: ["cull", "CullCore"], path: "Tests/CullCommandTests"),
 ]
 
 #if os(macOS)
