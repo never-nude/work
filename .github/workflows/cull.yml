@@ -1,0 +1,55 @@
+name: cull
+
+# Builds and tests the Cull macOS app (cull/). Only runs when cull/ changes.
+on:
+  push:
+    paths:
+      - "cull/**"
+      - ".github/workflows/cull.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cull-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  recon:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+          ls /Applications | grep -i xcode || true
+      - name: Simulator JSON shapes
+        run: |
+          echo "::group::simctl list devices -j (head)"
+          xcrun simctl list devices -j | head -60
+          echo "::endgroup::"
+          echo "::group::simctl runtime list -j (head)"
+          xcrun simctl runtime list -j | head -60 || true
+          echo "::endgroup::"
+          echo "::group::simctl runtime help"
+          xcrun simctl runtime 2>&1 | head -60 || true
+          echo "::endgroup::"
+          echo "::group::simctl help delete/erase"
+          xcrun simctl help delete 2>&1 | head -30 || true
+          xcrun simctl help erase 2>&1 | head -30 || true
+          echo "::endgroup::"
+      - name: Home layout
+        run: |
+          echo "HOME=$HOME"
+          ls -la ~ | head -60
+          echo "--- ~/Library/Caches"; ls ~/Library/Caches | head -80
+          echo "--- ~/Library/Developer"; ls ~/Library/Developer 2>/dev/null | head
+          echo "--- ~/Library/Developer/Xcode"; ls ~/Library/Developer/Xcode 2>/dev/null | head -30
+          echo "--- CoreSimulator"; ls ~/Library/Developer/CoreSimulator 2>/dev/null | head
+          echo "--- /Library/Developer/CoreSimulator"; ls -la /Library/Developer/CoreSimulator 2>/dev/null | head
+          echo "--- TCC probe"; (head -c 16 "$HOME/Library/Application Support/com.apple.TCC/TCC.db" | xxd | head -1) 2>&1 || true
+          echo "--- Trash probe"; ls -la ~/.Trash 2>&1 | head -5
+          echo "--- df"; df -h / | tail -1
