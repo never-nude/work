@@ -215,11 +215,20 @@ private struct ItemRow: View {
             Checkbox(state: model.selection.contains(item.id) ? .on : .off, label: item.title) {
                 model.toggle(item)
             }
-            if let icon = app?.icon {
-                Image(nsImage: icon)
-                    .resizable()
-                    .interpolation(.high)
-                    .frame(width: 20, height: 20)
+            if showsApp {
+                // Always hold the icon's place, so names line up whether or not the app is installed.
+                Group {
+                    if let icon = app?.icon {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .interpolation(.high)
+                    } else {
+                        Image(systemName: "app.dashed")
+                            .font(.system(size: 15))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .frame(width: 20, height: 20)
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(app?.name ?? item.title)
@@ -497,11 +506,16 @@ private struct FooterNotes: View {
             ForEach(report.notes.filter { !$0.contains("Full Disk Access") }, id: \.self) { note in
                 Text(note)
             }
-            Text("Scanned in \(String(format: "%.1f", report.finishedAt.timeIntervalSince(report.startedAt))) seconds. Right-click anything to show it in Finder or to stop Cull offering it.")
+            Text("Scanned in \(duration). Right-click anything to show it in Finder or to stop Cull offering it.")
         }
         .font(.callout)
         .foregroundStyle(.tertiary)
         .padding(.horizontal, Theme.rowInset)
         .padding(.vertical, 16)
+    }
+
+    private var duration: String {
+        let seconds = report.finishedAt.timeIntervalSince(report.startedAt)
+        return seconds < 1 ? "under a second" : String(format: "%.1f seconds", seconds)
     }
 }

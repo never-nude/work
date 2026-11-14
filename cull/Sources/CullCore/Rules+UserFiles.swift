@@ -41,7 +41,7 @@ extension Rule {
     static let trash = Rule(
         id: "trash",
         title: "Trash",
-        blurb: "Everything sitting in your Trash. Emptying it is the one thing here that cannot be undone from the Trash.",
+        blurb: "Everything sitting in your Trash. Unlike the rest of this section, emptying it is permanent.",
         tier: .review,
         symbol: "trash",
         needsFullDiskAccess: true,

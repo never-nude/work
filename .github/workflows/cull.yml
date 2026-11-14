@@ -134,13 +134,20 @@ jobs:
           CULL_SNAPSHOT="$PWD/shots/window-expanded.png" CULL_SNAPSHOT_EXPAND=1 snapshot
           test -s shots/window.png || { echo "::error::no snapshot was written"; cat app.log; exit 1; }
 
-          # And the real screen with the app running, if the runner allows screen capture.
-          "$app" >> app.log 2>&1 &
-          pid=$!
-          sleep 10
-          kill -0 "$pid" 2>/dev/null || { echo "::error::Cull.app exited early"; cat app.log; exit 1; }
-          screencapture -x shots/screen.png || echo "screencapture unavailable"
-          kill "$pid" || true
+          # And the real screen with the app running, light and dark, if the runner allows screen capture.
+          capture() {
+            CULL_PRETEND_DISK=494,11.8 "$app" >> app.log 2>&1 &
+            local pid=$!
+            sleep 9
+            kill -0 "$pid" 2>/dev/null || { echo "::error::Cull.app exited early"; cat app.log; exit 1; }
+            screencapture -x "shots/$1.png" || echo "screencapture unavailable"
+            kill "$pid" || true
+            sleep 1
+          }
+          capture screen
+          defaults write -g AppleInterfaceStyle Dark
+          capture screen-dark
+          defaults delete -g AppleInterfaceStyle || true
 
           sips -g pixelWidth -g pixelHeight shots/*.png
           echo "--- app log"; cat app.log
@@ -148,11 +155,17 @@ jobs:
       - name: Put small copies of the snapshots in the log
         run: |
           # The artifact store is not reachable from every network, so the log carries a copy too.
-          for name in window window-dark window-review window-expanded; do
-            echo "-----BEGIN CULL SHOT $name-----"
-            base64 -i "shots/$name.png" | fold -w 120
-            echo "-----END CULL SHOT $name-----"
-          done
+          emit() {
+            echo "-----BEGIN CULL SHOT $1-----"
+            base64 -i "$2" | fold -w 120
+            echo "-----END CULL SHOT $1-----"
+          }
+          if [ -s shots/screen-dark.png ]; then
+            sips -s format jpeg -s formatOptions 60 shots/screen-dark.png --out shots/screen-dark.jpg > /dev/null
+            emit screen-dark shots/screen-dark.jpg
+          fi
+          # Last, so it is nearest the end of the log.
+          emit window shots/window.png
 
       - uses: actions/upload-artifact@v4
         if: always()
