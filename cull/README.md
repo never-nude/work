@@ -91,7 +91,7 @@ cull --never ~/Developer/Archivist         # never offer anything inside this fo
 
 ## Try it without risk
 
-`Scripts/make-demo-home.py` builds a stand-in home folder full of realistic clutter, and `CULL_HOME` points Cull at it instead of your real one:
+`Scripts/make-demo-home.py` builds a stand-in home folder full of realistic clutter (about 1 GB; pass `--scale 0.2` for about 10 GB), and `CULL_HOME` points Cull at it instead of your real one:
 
 ```sh
 python3 Scripts/make-demo-home.py /tmp/cull-demo

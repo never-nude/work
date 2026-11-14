@@ -77,7 +77,7 @@ struct SettingsView: View {
                 }
                 ForEach(exclusions, id: \.self) { entry in
                     HStack {
-                        Text(tilde(entry))
+                        Text(describe(exclusion: entry))
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Spacer()
@@ -132,6 +132,15 @@ struct SettingsView: View {
         if let customRoots { return customRoots }
         guard let environment = model.environment else { return [] }
         return Scanner(environment: environment, options: ScanOptions()).projectRoots()
+    }
+
+    /// Exclusions are either a path or an item id of the form "category|item".
+    private func describe(exclusion entry: String) -> String {
+        guard !entry.hasPrefix("/"), let bar = entry.firstIndex(of: "|") else { return tilde(entry) }
+        let category = String(entry[..<bar])
+        let item = String(entry[entry.index(after: bar)...])
+        let title = CullCatalog.entries.first { $0.id == category }?.title ?? category
+        return "\(item) · \(title)"
     }
 
     private func tilde(_ path: String) -> String {

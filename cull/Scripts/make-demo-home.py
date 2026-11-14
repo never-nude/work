@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Builds a stand-in home folder for trying Cull without touching your real one.
 
-    python3 Scripts/make-demo-home.py /tmp/cull-demo            # about 12 GB of realistic clutter
-    python3 Scripts/make-demo-home.py /tmp/cull-demo --scale 0.01   # the same shape, 1/100 the size
+    python3 Scripts/make-demo-home.py /tmp/cull-demo               # about 1 GB, shaped like the real thing
+    python3 Scripts/make-demo-home.py /tmp/cull-demo --scale 0.2   # about 10 GB, for realistic numbers
 
 Then point Cull at it. CULL_DAYS_AHEAD makes Cull believe time has passed, so everything in the
 folder is stale except what this script marks as freshly used:
@@ -166,7 +166,8 @@ def build(home):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("directory", help="where to build it; a `home` folder is created inside")
-    parser.add_argument("--scale", type=float, default=0.25, help="size multiplier (1.0 is about 48 GB, default 0.25)")
+    # Small by default: this is a tool for full disks, so the demo should not be what fills one.
+    parser.add_argument("--scale", type=float, default=0.02, help="size multiplier (1.0 is about 50 GB; default 0.02, about 1 GB)")
     parser.add_argument("--force", action="store_true", help="replace an existing demo folder")
     arguments = parser.parse_args()
 

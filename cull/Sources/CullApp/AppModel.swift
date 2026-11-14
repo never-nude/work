@@ -205,7 +205,9 @@ final class AppModel {
 
     /// Stops offering an item, now and in future scans.
     func neverCull(_ item: CullItem) {
-        AppSettings.addExclusions(item.paths.isEmpty ? [item.id] : item.paths)
+        // One folder is remembered by its path, which survives renames of the rule that found it.
+        // Anything made of several places (or of none, like a simulator) is remembered by its id.
+        AppSettings.addExclusions(item.paths.count == 1 ? item.paths : [item.id])
         selection.remove(item.id)
         guard var report else { return }
         for index in report.categories.indices {
