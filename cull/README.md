@@ -111,6 +111,7 @@ open --env CULL_HOME=/tmp/cull-demo/home --env CULL_DAYS_AHEAD=400 build/Cull.ap
 
 - `Sources/CullCore/`: the engine, Foundation only.
   - `Rules+*.swift`: what to look for. Each rule lists candidates; it never deletes.
+  - `Catalog.swift`: the rules, in the order they are shown.
   - `SafetyGuard.swift`: the independent allow list every deletion has to pass.
   - `Scanner.swift`: runs the rules, weighs what they found, decides what is pre-selected.
   - `Culler.swift`: carries out a cull, re-checking every path first.
