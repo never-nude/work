@@ -103,13 +103,21 @@ jobs:
           $cull --apply --yes --only trash --include trash | tail -3
           test ! -e ~/.Trash/cull-ci-check.bin
 
-      - name: Bundle the app
+      - name: Bundle and install the app
         run: |
-          ./build.sh
+          ./build.sh --install
           plutil -lint build/Cull.app/Contents/Info.plist
           codesign --verify --verbose=2 build/Cull.app
           sips -g pixelWidth -g pixelHeight Resources/AppIcon.icns
           build/cull --version
+          test -d /Applications/Cull.app
+          codesign --verify /Applications/Cull.app
+          # Installing again replaces our own earlier build...
+          ./build.sh --install | tail -3
+          # ...but never an unrelated app that happens to share the name.
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.example.other" /Applications/Cull.app/Contents/Info.plist
+          if ./build.sh --install; then echo "::error::build.sh replaced an app that is not Cull"; exit 1; fi
+          rm -rf /Applications/Cull.app
 
       - name: Launch the app on the stand-in home and photograph it
         run: |

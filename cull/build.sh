@@ -37,9 +37,18 @@ fi
 echo "Built $OUT and build/cull"
 
 if [[ "${1:-}" == "--install" ]]; then
-  rm -rf "/Applications/$APP.app"
-  cp -R "$OUT" "/Applications/$APP.app"
-  echo "Installed /Applications/$APP.app"
+  DEST="/Applications/$APP.app"
+  if [[ -e "$DEST" ]]; then
+    # Only ever replace an earlier build of this app, never something else that shares the name.
+    EXISTING=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$DEST/Contents/Info.plist" 2>/dev/null || true)
+    if [[ "$EXISTING" != "work.kushman.cull" ]]; then
+      echo "$DEST already exists and is a different app (${EXISTING:-unknown}). Leaving it alone."
+      exit 1
+    fi
+    rm -rf "$DEST"
+  fi
+  cp -R "$OUT" "$DEST"
+  echo "Installed $DEST"
   for dir in /usr/local/bin /opt/homebrew/bin; do
     if [[ -d "$dir" && -w "$dir" ]]; then
       cp build/cull "$dir/cull"
