@@ -22,6 +22,8 @@ struct FileStat: Sendable {
     /// Birth time. Only known on Darwin.
     let created: Date?
     let ownerID: UInt32
+    /// Permission bits (the low twelve bits of the mode).
+    let permissions: UInt32
 }
 
 struct FileIdentity: Hashable, Sendable {
@@ -64,7 +66,8 @@ enum Posix {
             allocated: Int64(st.st_blocks) * 512,
             modified: modified,
             created: created,
-            ownerID: UInt32(st.st_uid)
+            ownerID: UInt32(st.st_uid),
+            permissions: UInt32(st.st_mode) & 0o7777
         )
     }
 
@@ -141,7 +144,10 @@ enum Posix {
         guard let root = info(at: path), root.kind == .directory else { return }
         var stack = [path]
         while let dir = stack.popLast() {
-            _ = chmod(dir, 0o755)
+            // Add what the owner needs to delete inside it; leave every other bit as it was.
+            if let current = info(at: dir), current.permissions & 0o700 != 0o700 {
+                _ = chmod(dir, mode_t(current.permissions | 0o700))
+            }
             var subdirectories: [String] = []
             forEachEntry(in: dir) { name, fd in
                 guard let st = info(named: name, in: fd), st.kind == .directory, st.device == root.device else { return }
@@ -226,6 +232,10 @@ enum DirectorySizer {
 
         account(root)
         guard root.kind == .directory else { return result }
+        // A folder that is itself another volume's mount point counts as crossing, too.
+        if let parent = Posix.info(at: Posix.parent(of: path)), parent.device != root.device {
+            result.crossesVolume = true
+        }
 
         var stack = [path]
         while let dir = stack.popLast() {

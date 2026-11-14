@@ -88,6 +88,32 @@ final class CullerTests: XCTestCase {
         XCTAssertTrue(fixture.exists("Downloads/old.zip"))
     }
 
+    func testAnAppOpenedSinceTheScanKeepsItsCache() async throws {
+        let fixture = try Fixture()
+        fixture.file("Library/Caches/com.some.app/data")
+        // Scanned while the app was closed: selected, no warning.
+        let report = try await fixture.scan()
+        let scanned = try XCTUnwrap(report.item("caches.apps", titled: "com.some.app"))
+        XCTAssertTrue(scanned.selectedByDefault)
+        XCTAssertNil(scanned.caution)
+        XCTAssertEqual(scanned.quitFirst, ["com.some.app"])
+
+        // By the time Cull is clicked, the app is open.
+        let later = try fixture.environment(runningApps: ["com.some.app.helper"])
+        var summary = await Culler(environment: later).cull([scanned])
+        XCTAssertEqual(summary.outcomes.map(\.status), [.failed])
+        XCTAssertTrue(summary.outcomes[0].message?.contains("opened since the scan") ?? false)
+        XCTAssertTrue(fixture.exists("Library/Caches/com.some.app/data"))
+
+        // If the scan already warned that it was running and it was ticked anyway, that was a choice.
+        let warned = try await fixture.scan(runningApps: ["com.some.app"])
+        let chosen = try XCTUnwrap(warned.item("caches.apps", titled: "com.some.app"))
+        XCTAssertNotNil(chosen.caution)
+        summary = await Culler(environment: later).cull([chosen])
+        XCTAssertEqual(summary.outcomes.map(\.status), [.removed])
+        XCTAssertFalse(fixture.exists("Library/Caches/com.some.app/data"))
+    }
+
     func testThingsAlreadyGoneAreSkippedNotFailed() async throws {
         let fixture = try Fixture()
         fixture.dir("Library/Caches")
@@ -384,6 +410,28 @@ final class CullerTests: XCTestCase {
         let fixture = try Fixture()
         fixture.file("not-a-folder")
         XCTAssertThrowsError(try CullEnvironment(home: fixture.path("not-a-folder")))
+    }
+
+    func testPointingTheOverrideAtTheRealHomeDoesNotMakeItASandbox() throws {
+        let fixture = try Fixture()
+        XCTAssertTrue(try CullEnvironment.live(overrideHome: fixture.home).isSandbox)
+        // Only meaningful where the real home is a usable one (not root's on Linux, for instance).
+        guard (try? CullEnvironment(home: NSHomeDirectory())) != nil else { return }
+        for spelling in [NSHomeDirectory(), NSHomeDirectory() + "/", NSHomeDirectory() + "/./"] {
+            XCTAssertFalse(try CullEnvironment.live(overrideHome: spelling).isSandbox, "\(spelling) is the real home")
+        }
+    }
+
+    func testReadOnlyFoldersKeepTheirOtherPermissionBits() throws {
+        try XCTSkipIf(Fixture.isRoot, "root ignores permissions")
+        let fixture = try Fixture()
+        fixture.file("tree/private/inner/file")
+        XCTAssertEqual(chmod(fixture.path("tree/private/inner"), 0o500), 0)
+        XCTAssertEqual(chmod(fixture.path("tree/private"), 0o500), 0)
+        Posix.makeTreeWritable(fixture.path("tree"))
+        // The owner can now delete inside; group and others gained nothing.
+        XCTAssertEqual(Posix.info(at: fixture.path("tree/private"))?.permissions, 0o700)
+        XCTAssertEqual(Posix.info(at: fixture.path("tree/private/inner"))?.permissions, 0o700)
     }
 
     func testHomeIsCanonicalized() throws {

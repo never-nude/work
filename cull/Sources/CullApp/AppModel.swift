@@ -31,6 +31,12 @@ final class AppModel {
     var selection: Set<String> = []
     var expanded: Set<String> = []
     var showingConfirmation = false
+    /// Something the list should say once, e.g. that it rescanned because the old scan had gone stale.
+    var notice: String?
+
+    /// A scan describes one moment. After this long, what was idle or closed may not be,
+    /// so Cull looks again before deleting anything.
+    static let reportShelfLife: TimeInterval = 600
 
     @ObservationIgnored private var scanTask: Task<ScanReport, Never>?
     @ObservationIgnored private var scanGeneration = 0
@@ -241,7 +247,12 @@ final class AppModel {
 
     /// The Cull button: asks first unless the user turned that off.
     func requestCull() {
-        guard canCull else { return }
+        guard canCull, let report else { return }
+        if Date().timeIntervalSince(report.finishedAt) > Self.reportShelfLife {
+            notice = "That scan was more than \(Int(Self.reportShelfLife / 60)) minutes old, so Cull looked again. Check the list, then cull."
+            scan()
+            return
+        }
         if AppSettings.confirmBeforeCulling {
             showingConfirmation = true
         } else {
@@ -252,6 +263,7 @@ final class AppModel {
     func cull() {
         guard canCull, let environment else { return }
         let items = selectedItems
+        notice = nil
         phase = .culling
         cullProgress = CullProgress(completed: 0, total: items.count, current: "", bytesSoFar: 0)
         lastSummary = nil

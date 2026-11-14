@@ -200,6 +200,17 @@ final class SafetyGuardTests: XCTestCase {
         assertRefused(home + "/Pictures/project/node_modules", .artifact(root: home + "/Pictures", names: ["node_modules"]))
     }
 
+    func testLookAlikeSpellingsDoNotSlipPastTheDenyLists() {
+        // A case-insensitive volume treats these as Pictures, Music and com.apple.Safari.
+        assertAlwaysRefused(home + "/Picture\u{017F}/shot.png", anywhere)
+        assertRefused(home + "/Picture\u{017F}/site/node_modules", .artifact(root: home + "/Picture\u{017F}", names: ["node_modules"]))
+        assertRefused(home + "/\u{FF2D}usic/site/node_modules", .artifact(root: home + "/\u{FF2D}usic", names: ["node_modules"]))
+        assertAlwaysRefused(home + "/Library/Caches/COM.APPLE.Safari", under("Library/Caches"))
+        assertAlwaysRefused(home + "/Library/Caches/com.apple.\u{017F}afari", under("Library/Caches"))
+        assertRefused(home + "/Developer/app/.GIT/x/node_modules", .artifact(root: home + "/Developer", names: ["node_modules"]))
+        XCTAssertEqual(SafetyGuard.folded("Picture\u{017F}"), "pictures")
+    }
+
     func testRefusesGitMetadata() {
         assertRefused(home + "/Developer/app/.git", .artifact(root: home + "/Developer", names: [".git"]))
         assertRefused(home + "/Developer/app/.git/modules/x/node_modules", .artifact(root: home + "/Developer", names: ["node_modules"]))

@@ -107,6 +107,21 @@ final class OptionsTests: XCTestCase {
         XCTAssertTrue(Options.expand("relative").hasPrefix("/"))
     }
 
+    func testAbsurdNumbersAreRejectedRatherThanOverflowing() {
+        XCTAssertThrowsError(try Options.parse(["--simulator-mb", "9223372036854775807"]))
+        XCTAssertThrowsError(try Options.parse(["--simulator-mb", "10000001"]))
+        XCTAssertNoThrow(try Options.parse(["--simulator-mb", "500"]))
+    }
+
+    func testFileNamesCannotDriveTheTerminal() {
+        let hostile = "invoice\u{1B}[2J\u{1B}[1;1Hnothing to see\u{07}\r\n.pdf"
+        let shown = Printer.printable(hostile)
+        XCTAssertFalse(shown.unicodeScalars.contains { $0.value < 0x20 || $0.value == 0x7F })
+        XCTAssertEqual(shown, "invoice?[2J?[1;1Hnothing to see???.pdf")
+        // Ordinary names, accents and emoji included, pass through untouched.
+        XCTAssertEqual(Printer.printable("Café résumé 📦 – final (2).pdf"), "Café résumé 📦 – final (2).pdf")
+    }
+
     func testEveryCategoryIdIsAcceptedByOnly() throws {
         for entry in CullCatalog.entries {
             XCTAssertNoThrow(try Options.parse(["--only", entry.id]))

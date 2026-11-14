@@ -121,6 +121,35 @@ final class UserFileRuleTests: XCTestCase {
         XCTAssertNil(report.item("caches.packages", titled: "Homebrew downloads"))
     }
 
+    func testNeverCullMatchesHoweverThePathIsSpelled() async throws {
+        func survivors(_ exclusion: String) async throws -> [String] {
+            let fixture = try Fixture()
+            fixture.file("Developer/vault/package.json")
+            fixture.file("Developer/vault/package-lock.json")
+            fixture.file("Developer/vault/node_modules/x/index.js")
+            fixture.dir("Developer/other")
+            fixture.symlink("vault-link", to: fixture.path("Developer/vault"))
+            let spelled = exclusion.replacingOccurrences(of: "HOME", with: fixture.home)
+            let report = try await fixture.scan(fixture.options(exclusions: [spelled]))
+            return report.items("projects.artifacts").map(\.title)
+        }
+        // Every one of these means the same folder and must protect it.
+        for spelling in [
+            "HOME/Developer/vault", "HOME/Developer/vault/", "HOME/Developer/vault///", "~/Developer/vault/",
+            "HOME/Developer/./vault", "HOME/Developer/other/../vault", "HOME//Developer//vault",
+            "HOME/vault-link", "HOME/DEVELOPER/Vault", "  HOME/Developer/vault  ",
+            "HOME/Developer/vault/node_modules", "HOME/Developer",
+        ] {
+            let offered = try await survivors(spelling)
+            XCTAssertEqual(offered, [], "\(spelling) should have excluded the project")
+        }
+        // And these must not exclude it (or anything else by accident).
+        for spelling in ["HOME/Developer/vaul", "HOME/Developer/vault-old", "/", "HOME", "~", "HOME/Developer/gone/vault", ""] {
+            let offered = try await survivors(spelling)
+            XCTAssertEqual(offered, ["vault · node_modules"], "\(spelling) should not have excluded the project")
+        }
+    }
+
     func testScanCanBeLimitedToCategories() async throws {
         let fixture = try Fixture()
         fixture.file(".npm/_cacache/x")
@@ -223,6 +252,16 @@ final class SimulatorRuleTests: XCTestCase {
         XCTAssertTrue(item.selectedByDefault)
         XCTAssertGreaterThanOrEqual(item.bytes, 50_000)
         XCTAssertEqual(report.category("sim.unavailable")?.tier, .safe)
+    }
+
+    func testAnUnavailableSimulatorThatHoldsDataIsNotPreselected() async throws {
+        let (fixture, runner) = try makeFixture()
+        // The fixture's unavailable simulator holds 50 KB. Treat anything over 10 KB as lived-in.
+        var options = fixture.options()
+        options.livedInSimulatorBytes = 10_000
+        let report = try await fixture.scan(options, runner: runner)
+        let item = try XCTUnwrap(report.items("sim.unavailable").first)
+        XCTAssertFalse(item.selectedByDefault, "its apps and data would come back with the runtime")
     }
 
     func testSimulatorContentsOfferEraseForLivedInShutDownDevices() async throws {

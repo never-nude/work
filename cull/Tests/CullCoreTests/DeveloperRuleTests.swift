@@ -223,6 +223,7 @@ final class ProjectRuleTests: XCTestCase {
         let fixture = try Fixture()
         fixture.file("Developer/mono/package.json")
         fixture.file("Developer/mono/pnpm-lock.yaml")
+        fixture.file("Developer/mono/pnpm-workspace.yaml")
         fixture.file("Developer/mono/node_modules/.pnpm/x/index.js")
         fixture.file("Developer/mono/packages/web/package.json")
         fixture.file("Developer/mono/packages/web/node_modules/y/index.js")
@@ -232,6 +233,49 @@ final class ProjectRuleTests: XCTestCase {
         XCTAssertEqual(items["mono · node_modules"]?.selectedByDefault, true)
         XCTAssertEqual(items["web · node_modules"]?.selectedByDefault, true)
         XCTAssertEqual(items["web · .turbo"]?.selectedByDefault, true)
+    }
+
+    func testNpmWorkspacesAreRecognisedFromThePackageManifest() async throws {
+        let fixture = try Fixture()
+        fixture.text("Developer/mono/package.json", #"{"name": "mono", "workspaces": ["packages/*"]}"#)
+        fixture.file("Developer/mono/package-lock.json")
+        fixture.file("Developer/mono/packages/api/package.json")
+        fixture.file("Developer/mono/packages/api/node_modules/y/index.js")
+
+        let items = artifacts(try await fixture.scan())
+        XCTAssertEqual(items["api · node_modules"]?.selectedByDefault, true)
+    }
+
+    func testAStrayLockfileAboveDoesNotVouchForProjectsBelow() async throws {
+        let fixture = try Fixture()
+        // Someone once ran `npm install` in ~/Developer by accident.
+        fixture.text("Developer/package.json", #"{"dependencies": {"left-pad": "1.3.0"}}"#)
+        fixture.file("Developer/package-lock.json")
+        fixture.file("Developer/node_modules/left-pad/index.js")
+        // This project has no lockfile of its own, so reinstalling it is not exact.
+        fixture.file("Developer/old-app/package.json")
+        fixture.file("Developer/old-app/node_modules/x/index.js")
+
+        let items = artifacts(try await fixture.scan())
+        let orphan = try XCTUnwrap(items["old-app · node_modules"])
+        XCTAssertFalse(orphan.selectedByDefault)
+        XCTAssertNotNil(orphan.caution)
+        // The accidental install itself does have its lockfile.
+        XCTAssertEqual(items["Developer · node_modules"]?.selectedByDefault, true)
+    }
+
+    func testEditsDeepInTheTreeStillCountAsWork() async throws {
+        let fixture = try Fixture()
+        fixture.file("Developer/deep/package.json")
+        fixture.file("Developer/deep/package-lock.json")
+        fixture.file("Developer/deep/node_modules/x/index.js")
+        // Plenty of old files in a folder that sorts first...
+        for index in 0..<40 { fixture.file("Developer/deep/assets/img\(index).png", bytes: 64) }
+        // ...and yesterday's edit five folders down.
+        fixture.file("Developer/deep/src/features/editor/panels/toolbar/Button.tsx", fresh: true)
+
+        let items = artifacts(try await fixture.scan())
+        XCTAssertEqual(items["deep · node_modules"]?.selectedByDefault, false)
     }
 
     func testAFolderOnlyCountsWithItsManifestBesideIt() async throws {

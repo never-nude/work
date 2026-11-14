@@ -83,6 +83,57 @@ final class CacheRuleTests: XCTestCase {
         XCTAssertEqual(report.skippedNotes, [])
     }
 
+    func testVendorFoldersAreSplitSoIDEHistoryIsNotMistakenForCache() async throws {
+        let fixture = try Fixture()
+        fixture.file("Library/Caches/Google/Chrome/Default/Cache/data_0")
+        fixture.file("Library/Caches/Google/AndroidStudio2025.1/LocalHistory/changes.storageData")
+        fixture.file("Library/Caches/Google/SomethingElse/blob")
+        fixture.file("Library/Caches/JetBrains/IntelliJIdea2025.2/LocalHistory/changes.storageData")
+        fixture.file("Library/Caches/JetBrains/IntelliJIdea2025.2/caches/names.dat")
+
+        var report = try await fixture.scan()
+        var items = Dictionary(uniqueKeysWithValues: report.items("caches.apps").map { ($0.title, $0) })
+        XCTAssertEqual(Set(items.keys), [
+            "Google Chrome", "Google AndroidStudio2025.1", "Google SomethingElse", "JetBrains IntelliJIdea2025.2",
+        ])
+        XCTAssertTrue(items["Google Chrome"]!.selectedByDefault)
+        XCTAssertEqual(items["Google Chrome"]!.paths, [fixture.path("Library/Caches/Google/Chrome")])
+        for title in ["Google AndroidStudio2025.1", "JetBrains IntelliJIdea2025.2"] {
+            XCTAssertFalse(items[title]!.selectedByDefault, "\(title) holds Local History")
+            XCTAssertEqual(items[title]!.caution, "Includes the IDE's Local History")
+        }
+        XCTAssertFalse(items["Google SomethingElse"]!.selectedByDefault)
+        XCTAssertEqual(report.skippedNotes, [])
+
+        report = try await fixture.scan(runningApps: ["com.google.Chrome"])
+        items = Dictionary(uniqueKeysWithValues: report.items("caches.apps").map { ($0.title, $0) })
+        XCTAssertFalse(items["Google Chrome"]!.selectedByDefault)
+        XCTAssertNotNil(items["Google Chrome"]!.caution)
+    }
+
+    func testDenoKeepsItsDataAndOnlyGivesUpItsCaches() async throws {
+        let fixture = try Fixture()
+        fixture.file("Library/Caches/deno/deps/https/deno.land/abc")
+        fixture.file("Library/Caches/deno/npm/registry.npmjs.org/chalk/5.0.0/index.js")
+        fixture.file("Library/Caches/deno/gen/file/x.js")
+        fixture.file("Library/Caches/deno/location_data/abc123/local_storage")
+        fixture.file("Library/Caches/deno/location_data/abc123/kv.sqlite3")
+
+        let report = try await fixture.scan()
+        let deno = try XCTUnwrap(report.item("caches.packages", titled: "Deno"))
+        XCTAssertEqual(Set(deno.paths), [
+            fixture.path("Library/Caches/deno/deps"), fixture.path("Library/Caches/deno/npm"),
+            fixture.path("Library/Caches/deno/gen"),
+        ])
+        XCTAssertEqual(report.items("caches.apps"), [], "the catch-all must not offer the rest of Deno's folder")
+
+        let summary = await Culler(environment: try fixture.environment()).cull(report.allItems)
+        XCTAssertEqual(summary.problems, [])
+        XCTAssertTrue(fixture.exists("Library/Caches/deno/location_data/abc123/kv.sqlite3"))
+        XCTAssertTrue(fixture.exists("Library/Caches/deno/location_data/abc123/local_storage"))
+        XCTAssertFalse(fixture.exists("Library/Caches/deno/deps/https"))
+    }
+
     func testRunningHelperProcessesCountAsTheAppRunning() async throws {
         let fixture = try Fixture()
         fixture.file("Library/Caches/com.tinyspeck.slackmacgap/x")

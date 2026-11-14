@@ -12,6 +12,9 @@ enum SelectionPolicy: Sendable {
     /// for as long. A dev server or a build writes into these folders, so recent changes
     /// inside mean the project is in use even if nobody has edited it.
     case staleProject(Date?, days: Int)
+    /// Selected only while it weighs less than this. For things that are disposable when
+    /// empty and worth a second look when they hold data.
+    case smallerThan(Int64)
 }
 
 /// Something a rule found, before it has been weighed.
@@ -33,6 +36,8 @@ struct Candidate: Sendable {
     var measuredPaths: [String]?
     /// Overrides the usual "too small to list" threshold.
     var minimumBytes: Int64?
+    /// Apps that must not be running when this is culled (see `CullItem.quitFirst`).
+    var quitFirst: [String] = []
 }
 
 struct Rule: Sendable {
@@ -171,7 +176,8 @@ extension Rule {
                         action: .deleteContents,
                         scope: .under(found.map(Posix.parent(of:))),
                         policy: policy,
-                        caution: caution
+                        caution: caution,
+                        quitFirst: location.apps
                     )
                 }
             }

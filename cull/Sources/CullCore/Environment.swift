@@ -86,7 +86,9 @@ public struct CullEnvironment: Sendable {
     /// The real machine, or a sandbox home when `CULL_HOME` (or `overrideHome`) is set.
     public static func live(overrideHome: String? = nil) throws -> CullEnvironment {
         let override = overrideHome ?? ProcessInfo.processInfo.environment[homeOverrideVariable]
-        if let override, !override.isEmpty {
+        // Pointing the override at the real home folder must not buy sandbox leniency for it.
+        let realHome = Posix.realPath(NSHomeDirectory())
+        if let override, !override.isEmpty, realHome == nil || Posix.realPath(override) != realHome {
             var environment = try CullEnvironment(home: override, isSandbox: true)
             // A sandbox can pretend time has passed, so a freshly built stand-in home has stale things in it.
             if let days = ProcessInfo.processInfo.environment[clockOffsetVariable].flatMap(Double.init) {
@@ -169,6 +171,10 @@ public struct CullEnvironment: Sendable {
 
     /// The name of a running app matching any of `identifiers` (bundle IDs or app names), if one is running.
     public func runningApp(matching identifiers: [String]) -> String? {
+        Self.runningApp(matching: identifiers, among: runningApps)
+    }
+
+    static func runningApp(matching identifiers: [String], among runningApps: Set<String>) -> String? {
         for identifier in identifiers {
             let wanted = identifier.lowercased()
             guard !wanted.isEmpty else { continue }

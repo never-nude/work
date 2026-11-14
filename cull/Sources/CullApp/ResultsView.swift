@@ -59,6 +59,9 @@ struct ResultsView: View {
                                 .padding(.top, 14)
                                 .padding(.bottom, 6)
                         }
+                        if let notice = model.notice {
+                            NoticeBanner(text: notice)
+                        }
                         if !report.hasFullDiskAccess {
                             FullDiskAccessHint()
                         }
@@ -362,6 +365,35 @@ private struct SummaryBanner: View {
             sentences.append("Empty the Trash to get the rest back.")
         }
         return sentences.joined(separator: " ")
+    }
+}
+
+private struct NoticeBanner: View {
+    @Environment(AppModel.self) private var model
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "arrow.clockwise.circle.fill")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+            Text(text)
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 12)
+            Button {
+                model.notice = nil
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.borderless)
+            .help("Dismiss")
+        }
+        .padding(14)
+        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+        .padding(.horizontal, Theme.rowInset)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
     }
 }
 

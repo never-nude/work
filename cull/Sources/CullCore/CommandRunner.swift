@@ -1,5 +1,13 @@
 import Foundation
 
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
+#endif
+
 public struct CommandResult: Sendable, Equatable {
     public var status: Int32
     public var output: String
@@ -42,22 +50,50 @@ public struct ProcessRunner: CommandRunning {
             return nil
         }
 
-        // A hung CoreSimulator service must not hang the scan.
+        // A hung CoreSimulator service must not hang the scan: ask politely at the deadline,
+        // then insist a few seconds later.
+        let timedOut = Flag()
+        let identifier = process.processIdentifier
         let watchdog = DispatchWorkItem { [process] in
-            if process.isRunning { process.terminate() }
+            guard process.isRunning else { return }
+            timedOut.raise()
+            process.terminate()
         }
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeout, execute: watchdog)
+        let enforcer = DispatchWorkItem { [process] in
+            if process.isRunning { _ = kill(identifier, SIGKILL) }
+        }
+        let queue = DispatchQueue.global(qos: .utility)
+        queue.asyncAfter(deadline: .now() + timeout, execute: watchdog)
+        queue.asyncAfter(deadline: .now() + timeout + 5, execute: enforcer)
 
         // Drain before waiting, or a chatty child blocks on a full pipe.
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         watchdog.cancel()
+        enforcer.cancel()
 
-        let timedOut = process.terminationReason == .uncaughtSignal
         return CommandResult(
             status: process.terminationStatus,
             output: String(decoding: data, as: UTF8.self),
-            timedOut: timedOut
+            timedOut: timedOut.isRaised
         )
+    }
+}
+
+/// A one-way flag that is safe to set from the watchdog and read from the caller.
+private final class Flag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var raised = false
+
+    func raise() {
+        lock.lock()
+        raised = true
+        lock.unlock()
+    }
+
+    var isRaised: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return raised
     }
 }

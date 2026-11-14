@@ -52,6 +52,15 @@ final class Fixture {
         return full
     }
 
+    /// Writes a small text file (for manifests whose contents matter).
+    @discardableResult
+    func text(_ relative: String, _ contents: String) -> String {
+        let full = path(relative)
+        try! FileManager.default.createDirectory(atPath: Posix.parent(of: full), withIntermediateDirectories: true)
+        XCTAssertTrue(FileManager.default.createFile(atPath: full, contents: Data(contents.utf8)))
+        return full
+    }
+
     /// Sets the modification time relative to the fixture's clock.
     func touch(_ relative: String, daysAgo: Double) {
         let date = now.addingTimeInterval(-daysAgo * 86_400)

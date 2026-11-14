@@ -40,6 +40,9 @@ struct CullCommand {
         exit(await run(options))
     }
 
+    /// How long a scan may sit at the confirmation prompt before it has to be redone.
+    static let reportShelfLife: TimeInterval = 600
+
     // MARK: Run
 
     static func run(_ options: Options) async -> Int32 {
@@ -67,6 +70,11 @@ struct CullCommand {
         scanOptions.exclusions = options.never.map { path in
             if path == "~" { return environment.home }
             return path.hasPrefix("~/") ? environment.home + path.dropFirst(1) : path
+        }
+        // A mistyped --never would quietly protect nothing, so insist that each one exists.
+        for path in scanOptions.exclusions where !FileManager.default.fileExists(atPath: path) {
+            printError("cull: --never \(path) does not exist. Nothing was scanned or deleted.")
+            return 2
         }
 
         let terminal = Terminal(color: options.color)
@@ -114,6 +122,11 @@ struct CullCommand {
             let answer = readLine()?.trimmingCharacters(in: .whitespaces).lowercased() ?? ""
             guard answer == "y" || answer == "yes" else {
                 print("Nothing was deleted.")
+                return 0
+            }
+            // What was idle and closed when this was scanned may not be any more.
+            if Date().timeIntervalSince(report.finishedAt) > Self.reportShelfLife {
+                print("That scan is more than \(Int(Self.reportShelfLife / 60)) minutes old. Nothing was deleted; run cull again.")
                 return 0
             }
         }
@@ -267,7 +280,12 @@ struct Options {
             case "--stale-days": options.staleDays = try days(for: argument)
             case "--project-days": options.projectDays = try days(for: argument)
             case "--download-days": options.downloadDays = try days(for: argument)
-            case "--simulator-mb": options.simulatorFloorMegabytes = try days(for: argument)
+            case "--simulator-mb":
+                let megabytes = try days(for: argument)
+                guard megabytes <= 10_000_000 else {
+                    throw UsageError(message: "--simulator-mb is in megabytes; \(megabytes) is more than any disk holds")
+                }
+                options.simulatorFloorMegabytes = megabytes
             case "--home": options.home = try value(for: argument)
             default: throw UsageError(message: "unknown option \(argument)")
             }
@@ -353,6 +371,16 @@ struct Printer {
 
     private static let previewCount = 6
 
+    /// File names end up in this output, and a file name can contain anything, including
+    /// escape sequences that would repaint the report. Control characters become "?".
+    static func printable(_ text: String) -> String {
+        String(String.UnicodeScalarView(text.unicodeScalars.map { scalar in
+            let isControl = scalar.value < 0x20 || (0x7F...0x9F).contains(scalar.value)
+                || scalar.value == 0x2028 || scalar.value == 0x2029
+            return isControl ? "?" : scalar
+        }))
+    }
+
     /// One line with the size right-aligned: `  ● Label  detail ........ 3.1 GB`.
     private func row(
         indent: Int, marker: String, label: String, detail: String? = nil, size: String,
@@ -361,8 +389,8 @@ struct Printer {
         let prefix = String(repeating: " ", count: indent) + marker + " "
         let sizeWidth = 10
         let room = terminal.width - prefix.count - sizeWidth - 1
-        var shownLabel = label
-        var shownDetail = detail.map { "  " + $0 } ?? ""
+        var shownLabel = Self.printable(label)
+        var shownDetail = detail.map { "  " + Self.printable($0) } ?? ""
         if shownLabel.count > room {
             shownLabel = String(shownLabel.prefix(max(1, room - 1))) + "…"
             shownDetail = ""
@@ -422,7 +450,7 @@ struct Printer {
             print("")
         }
         for note in report.notes {
-            print(terminal.dim("Note: \(note)"))
+            print(terminal.dim("Note: \(Self.printable(note))"))
         }
 
         let selectedBytes = report.bytes(selected: selection)
@@ -466,7 +494,8 @@ struct Printer {
     func printSummary(_ summary: CullSummary) {
         print("")
         for outcome in summary.problems {
-            print(terminal.red("  ✗ ") + outcome.title + terminal.dim("  " + (outcome.message ?? "failed")))
+            print(terminal.red("  ✗ ") + Self.printable(outcome.title)
+                + terminal.dim("  " + Self.printable(outcome.message ?? "failed")))
         }
         var parts = ["Culled \(terminal.bold(Format.bytes(summary.deletedBytes)))"]
         if summary.trashedBytes > 0 {

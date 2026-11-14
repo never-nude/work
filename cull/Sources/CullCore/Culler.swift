@@ -75,6 +75,8 @@ public final class Culler: Sendable {
         _ items: [CullItem], progress: (@Sendable (CullProgress) -> Void)? = nil
     ) async -> CullSummary {
         let before = DiskSpace.of(path: environment.home)
+        // What is running now, which is not necessarily what was running when the scan was made.
+        let runningNow = environment.isSandbox ? environment.runningApps : CullEnvironment.currentlyRunningApps()
         var outcomes: [CullOutcome] = []
         var bytesSoFar: Int64 = 0
         var cancelled = false
@@ -85,7 +87,7 @@ public final class Culler: Sendable {
                 break
             }
             progress?(CullProgress(completed: index, total: items.count, current: item.title, bytesSoFar: bytesSoFar))
-            let outcome = perform(item)
+            let outcome = perform(item, runningNow: runningNow)
             if outcome.status != .failed, outcome.status != .skipped { bytesSoFar += outcome.bytes }
             outcomes.append(outcome)
         }
@@ -103,11 +105,19 @@ public final class Culler: Sendable {
         CullOutcome(id: item.id, title: item.title, status: status, bytes: bytes, message: message)
     }
 
-    func perform(_ item: CullItem) -> CullOutcome {
+    func perform(_ item: CullItem, runningNow: Set<String> = []) -> CullOutcome {
         // Deleting as root would sail past the permissions that keep mistakes small.
         // No exception for sandbox homes: `sudo` plus a mistyped CULL_HOME is exactly the mistake.
         if Posix.isRoot {
             return outcome(item, .failed, "Cull refuses to delete anything as root. Run it as yourself, without sudo.")
+        }
+
+        // The scan pre-selects an app's cache only while the app is closed. If it has been
+        // opened since, nobody was warned, so leave it. An item that already carried the
+        // warning was ticked knowingly and goes ahead.
+        if item.caution == nil,
+           CullEnvironment.runningApp(matching: item.quitFirst, among: runningNow) != nil {
+            return outcome(item, .failed, "\(item.title) has been opened since the scan. Quit it and cull again.")
         }
 
         if case .command(let arguments) = item.action {
@@ -139,10 +149,12 @@ public final class Culler: Sendable {
 
         let summary = problems.count == 1 ? problems[0] : "\(problems[0]) (and \(problems.count - 1) more)"
         guard removedAnything else { return outcome(item, .failed, summary) }
-        // Some of it went. Weigh what is left so the report stays honest.
+        // Some of it may have gone. Weigh what is left so the report stays honest.
         var remaining: Int64 = 0
         for path in item.paths { remaining += DirectorySizer.measure(path).bytes }
-        return outcome(item, .partial, bytes: max(0, item.bytes - remaining), summary)
+        let freed = max(0, item.bytes - remaining)
+        if done == 0, freed == 0 { return outcome(item, .failed, summary) }
+        return outcome(item, .partial, bytes: freed, summary)
     }
 
     private func run(_ arguments: [String], for item: CullItem) -> CullOutcome {
@@ -235,7 +247,9 @@ public final class Culler: Sendable {
                 return .refused("Not a file action")
             }
         } catch {
-            return .problem("\(shown): \(error.localizedDescription)", removedSome: false)
+            // Deleting a folder can fail part-way through, with some of it already gone.
+            let mayBePartial = action == .delete && stat.kind == .directory
+            return .problem("\(shown): \(error.localizedDescription)", removedSome: mayBePartial)
         }
         return .done
     }

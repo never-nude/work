@@ -56,9 +56,15 @@ public struct SafetyGuard: Sendable {
         "metadata",
     ]
 
+    /// Folds a name the way a case-insensitive volume compares it, so a look-alike spelling
+    /// (a long s, a full-width letter) cannot walk past a deny list that `lowercased()` would miss.
+    static func folded(_ name: String) -> String {
+        name.folding(options: [.caseInsensitive, .widthInsensitive], locale: nil).lowercased()
+    }
+
     /// True for caches that belong to macOS. Xcode's (`com.apple.dt.*`) are the exception.
     public static func isAppleOwnedCache(_ name: String) -> Bool {
-        let lower = name.lowercased()
+        let lower = folded(name)
         if lower.hasPrefix("com.apple.dt.") { return false }
         if lower == "com.apple" || lower.hasPrefix("com.apple.") { return true }
         return appleCacheNames.contains(lower)
@@ -81,7 +87,7 @@ public struct SafetyGuard: Sendable {
         guard parts.count >= 2 else { return "too close to the top of the home folder" }
 
         let first = parts[0]
-        let lowerFirst = first.lowercased()
+        let lowerFirst = Self.folded(first)
         var isArtifactScope = false
         if case .artifact = scope { isArtifactScope = true }
 
@@ -100,7 +106,7 @@ public struct SafetyGuard: Sendable {
             }
         } else {
             if Self.protectedTopLevel.contains(lowerFirst) { return "~/\(first) is protected" }
-            if parts.contains(where: { $0.lowercased() == ".git" }) { return "inside Git metadata" }
+            if parts.contains(where: { Self.folded($0) == ".git" }) { return "inside Git metadata" }
             if isArtifactScope {
                 guard action == .delete else { return "build artifacts are deleted, nothing else" }
             } else {
@@ -152,7 +158,7 @@ public struct SafetyGuard: Sendable {
             guard rest.count == 5, rest[2] == "Data", rest[3] == "Library", rest[4] == "Caches" else {
                 return "only a sandboxed app's Caches folder may be emptied"
             }
-            let owner = rest[1].lowercased()
+            let owner = Self.folded(rest[1])
             if owner.hasPrefix("com.apple."), !Self.appleContainersAllowed.contains(owner) {
                 return "\(rest[1]) is a macOS system container"
             }
@@ -203,7 +209,7 @@ public struct SafetyGuard: Sendable {
             guard rest.count == 3, rest[1] == "Backup" else { return "only individual device backups may be removed" }
             return action == .trash ? nil : "device backups can only be moved to the Trash"
         }
-        if owner.lowercased().hasPrefix("com.apple.") { return "\(owner) belongs to macOS" }
+        if Self.folded(owner).hasPrefix("com.apple.") { return "\(owner) belongs to macOS" }
         // <App>/…/<a Chromium cache folder>, at most a couple of profile levels down.
         guard rest.count >= 2, rest.count <= 6 else {
             return "not a recognised cache folder inside Application Support"

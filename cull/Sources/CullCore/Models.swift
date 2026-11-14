@@ -80,12 +80,15 @@ public struct CullItem: Identifiable, Sendable, Hashable, Codable {
     public var caution: String?
     /// True when some of the item could not be read, so `bytes` is a lower bound.
     public var incomplete: Bool
+    /// Apps (bundle identifiers or names) that should not be running when this is culled.
+    /// If one has started since the scan, the cull leaves the item alone.
+    public var quitFirst: [String]
 
     public init(
         id: String, categoryID: String, title: String, subtitle: String? = nil, paths: [String],
         action: ItemAction, scope: PathScope?, bytes: Int64, lastUsed: Date? = nil,
         lastUsedLabel: String? = nil, selectedByDefault: Bool, caution: String? = nil,
-        incomplete: Bool = false
+        incomplete: Bool = false, quitFirst: [String] = []
     ) {
         self.id = id
         self.categoryID = categoryID
@@ -100,6 +103,7 @@ public struct CullItem: Identifiable, Sendable, Hashable, Codable {
         self.selectedByDefault = selectedByDefault
         self.caution = caution
         self.incomplete = incomplete
+        self.quitFirst = quitFirst
     }
 }
 

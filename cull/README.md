@@ -34,7 +34,7 @@ Everything is sorted into three tiers by what it costs you to lose it.
 | **Rebuildable** | Xcode DerivedData per project, device support files, SwiftUI preview simulators, and `node_modules` / `.build` / `Pods` / `.venv` / `.next` / `target` in idle projects | Only when stale |
 | **Your call** | Trash, old downloads and installers, simulator runtimes, simulator contents, iPhone and iPad backups, Xcode archives | Never |
 
-"Stale" means: DerivedData not built in 14 days; a project not touched in 30 days (no file changes, no Git activity, and nothing written into the folder itself, so a project you run but never edit still counts as in use); downloads not added, changed or opened in 90 days. Dependencies are only pre-selected when a lockfile can bring them back exactly. All three are adjustable in Settings. For device support files the newest per platform is kept.
+"Stale" means: DerivedData not built in 14 days; a project not touched in 30 days (no file changes, no Git activity, and nothing written into the folder itself, so a project you run but never edit still counts as in use); downloads not added, changed or opened in 90 days. Dependencies are only pre-selected when a lockfile can bring them back exactly (a `requirements.txt` does not count, and a lockfile in a parent folder only counts for a declared workspace). All three are adjustable in Settings. For device support files the newest per platform is kept.
 
 Click a row to see what is inside it. Right-click any item to show it in Finder, or choose **Never Cull This** to stop it being offered.
 
@@ -52,6 +52,7 @@ Rules decide what is worth culling. A separate safety guard, with its own lists,
 - In every other folder of yours, exactly two things can go: a top-level item of `~/Downloads` (to the Trash only), or a folder named like a build artifact (`node_modules`, `.build`, `Pods`, `.venv`, `target`…) that sits next to the manifest proving what it is.
 - Personal files (downloads, backups, archives) are moved to the Trash, never deleted.
 - Symlinks are never followed. A cache folder that has been relocated through a symlink is invisible to Cull.
+- It does not act on old information. A scan more than ten minutes old is redone before anything is deleted, and an app that has been opened since the scan keeps its cache.
 - It never reaches into another volume. A folder with a disk image or network share mounted inside it is not offered at all.
 - Simulators are removed through `xcrun simctl`, not by deleting their folders.
 - It refuses to run as root, and will only treat a folder as "home" if that folder belongs to you.
@@ -87,6 +88,8 @@ cull --apply --include rebuildable,trash    # also take the whole rebuildable ti
 ```sh
 cull --never ~/Developer/Archivist         # never offer anything inside this folder
 ```
+
+`--never` insists that the path exists, so a typo stops the run instead of quietly protecting nothing.
 
 `cull --help` lists the rest (`--only`, `--exclude`, `--stale-days`, `--roots`, `--json`, `--list`). `--include` and `--exclude` take category ids from `cull --list`, or a single item's id from `cull --json`. When run from Terminal it uses Terminal's Full Disk Access.
 
@@ -133,6 +136,8 @@ Add a `Rule` in one of the `Rules+*.swift` files and list it in `Catalog.all` (`
 - Sizes are what is allocated on disk. Where files share storage (APFS clones, which Xcode and some package managers use), the real gain can be smaller than the estimate, so the summary after a cull reports the actual change in available space.
 - The first scan without Full Disk Access makes macOS ask about Desktop, Documents and Downloads. Saying no just means those folders are skipped.
 - Culling something that is in use is harmless but untidy, so Cull leaves the caches of running apps unselected and says which app to quit.
+- Some "cache" folders hold things that do not come back. Cull knows the ones it has met: it takes Deno's caches but not its local storage and KV databases, and it lists JetBrains and Android Studio folders unselected because they hold each IDE's Local History. Anything it does not recognise is offered unselected.
+- Simulators whose runtime is missing are only pre-selected when they are empty. One that holds app data would get it back if the runtime were reinstalled, so that is left for you to decide.
 
 ## Not there yet
 

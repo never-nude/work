@@ -120,7 +120,7 @@ extension Rule {
     static let unavailableSimulators = Rule(
         id: "sim.unavailable",
         title: "Unavailable simulators",
-        blurb: "Simulators whose OS runtime is no longer installed. They cannot boot and only take up room.",
+        blurb: "Simulators whose OS runtime is not installed, so they cannot boot. Empty ones are pre-selected; ones holding app data are left for you to decide.",
         tier: .safe,
         symbol: "iphone.slash",
         detect: { context in
@@ -128,11 +128,14 @@ extension Rule {
                 let device = listed.device
                 guard device.isAvailable == false, UUID(uuidString: device.udid) != nil else { return nil }
                 let folder = Simulators.deviceDirectory(device, context: context)
+                // Its runtime can come back (an Xcode update, a different Xcode selected), and the
+                // apps and data inside come back with it. Only an empty shell is a throwaway.
                 return Candidate(
                     key: device.udid,
                     title: "\(device.name ?? "Simulator") · \(Simulators.runtimeName(listed.runtime))",
-                    subtitle: "Runtime not installed",
+                    subtitle: "Runtime not installed; holds data if it is large",
                     action: .command([Simulators.xcrun, "simctl", "delete", device.udid]),
+                    policy: .smallerThan(context.options.livedInSimulatorBytes),
                     measuredPaths: folder.map { [$0] } ?? [],
                     minimumBytes: 0
                 )

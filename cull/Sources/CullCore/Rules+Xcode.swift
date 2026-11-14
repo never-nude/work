@@ -43,7 +43,8 @@ extension Rule {
                         action: .delete,
                         scope: .under([root]),
                         policy: xcodeRunning ? .never : .always,
-                        caution: xcodeRunning ? "Xcode is running" : nil
+                        caution: xcodeRunning ? "Xcode is running" : nil,
+                        quitFirst: xcodeIdentifiers
                     )
                 }
                 var subtitle: String?
@@ -120,7 +121,8 @@ extension Rule {
                         key: "xcode", title: "Xcode caches", subtitle: "~/Library/Caches/com.apple.dt.*",
                         paths: paths, action: .deleteContents, scope: .under([caches]),
                         policy: xcodeRunning ? .never : .always,
-                        caution: xcodeRunning ? "Xcode is running" : nil
+                        caution: xcodeRunning ? "Xcode is running" : nil,
+                        quitFirst: xcodeIdentifiers
                     ))
                 }
             }
@@ -159,7 +161,8 @@ extension Rule {
                     key: relative, title: label, subtitle: context.tilde(path), paths: [path],
                     action: .deleteContents, scope: .under([Posix.parent(of: path)]),
                     policy: xcodeRunning ? .never : .always,
-                    caution: xcodeRunning ? "Xcode is running" : nil
+                    caution: xcodeRunning ? "Xcode is running" : nil,
+                    quitFirst: xcodeIdentifiers
                 )
             }
         }

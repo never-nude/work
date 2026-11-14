@@ -110,6 +110,17 @@ struct ProjectScanner {
         return result
     }
 
+    /// A lockfile vouches for packages nested below it only when its folder says they are
+    /// its workspace. A stray `package-lock.json` in ~/Developer must not make every project
+    /// underneath look exactly restorable.
+    static func declaresWorkspace(_ directory: String, names: Set<String>) -> Bool {
+        if names.contains("pnpm-workspace.yaml") { return true }
+        guard names.contains("package.json"),
+              let data = FileManager.default.contents(atPath: directory + "/package.json"), data.count < 4_000_000,
+              let manifest = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return false }
+        return manifest["workspaces"] != nil
+    }
+
     static func latest(_ lhs: Date?, _ rhs: Date?) -> Date? {
         guard let lhs else { return rhs }
         guard let rhs else { return lhs }
@@ -143,14 +154,19 @@ struct ProjectScanner {
                 queue.append((child.path, 1))
             }
         }
-        var budget = 3_000
-        while budget > 0, let next = queue.popLast() {
+        // Breadth first, so a busy folder near the top cannot use up the whole budget before
+        // the others are looked at. Folder times count too: adding or removing a file is work.
+        var budget = 6_000
+        var index = 0
+        while budget > 0, index < queue.count {
+            let next = queue[index]
+            index += 1
             Posix.forEachEntry(in: next.path) { name, fd in
                 guard budget > 0, let stat = Posix.info(named: name, in: fd) else { return }
                 budget -= 1
-                if stat.kind == .file {
-                    newest = latest(newest, stat.modified)
-                } else if stat.kind == .directory, next.depth < 4 {
+                guard stat.kind == .file || stat.kind == .directory else { return }
+                newest = latest(newest, stat.modified)
+                if stat.kind == .directory, next.depth < 6 {
                     let childName = String(cString: name)
                     if shouldDescend(childName) { queue.append((Posix.join(next.path, childName), next.depth + 1)) }
                 }
@@ -214,7 +230,8 @@ struct ProjectScanner {
                     gitActivity = Self.latest(gitActivity, Self.gitActivity(in: frame.path))
                 }
                 let locked = frame.locked
-                    || (names.contains("package.json") && Self.nodeLockfiles.contains(where: names.contains))
+                    || (names.contains("package.json") && Self.nodeLockfiles.contains(where: names.contains)
+                        && Self.declaresWorkspace(frame.path, names: names))
 
                 let artifacts = Self.artifacts(
                     children: children, names: names, lockedAbove: frame.locked, context: context

@@ -38,6 +38,7 @@ public final class Scanner: Sendable {
         let claimed = Set(rules.flatMap(\.claims).map { $0.lowercased() })
         let context = RuleContext(env: env, options: options, claimed: claimed, memo: ScanMemo())
         var notes: [String] = []
+        let exclusions = Exclusions(options.exclusions, home: env.home)
 
         progress?(ScanProgress(phase: .detecting, completed: 0, total: active.count, current: "Looking around"))
 
@@ -68,10 +69,10 @@ public final class Scanner: Sendable {
             for var candidate in result.candidates {
                 guard seenKeys.insert(candidate.key).inserted else { continue }
                 let itemID = rule.id + "|" + candidate.key
-                if options.exclusions.contains(itemID) { continue }
+                if exclusions.itemIDs.contains(itemID) { continue }
 
                 if case .command(let arguments) = candidate.action {
-                    if Self.isExcluded(candidate.measuredPaths ?? [], by: options.exclusions) { continue }
+                    if (candidate.measuredPaths ?? []).contains(where: exclusions.covers) { continue }
                     if let reason = guardian.refusal(forCommand: arguments) {
                         notes.append("Skipped \(candidate.title): \(reason)")
                         continue
@@ -80,7 +81,7 @@ public final class Scanner: Sendable {
                     let hadPaths = !candidate.paths.isEmpty
                     let proposed = candidate
                     candidate.paths = proposed.paths.filter { path in
-                        if Self.isExcluded([path], by: options.exclusions) { return false }
+                        if exclusions.covers(path) { return false }
                         if let reason = guardian.refusal(for: path, action: proposed.action, scope: proposed.scope) {
                             notes.append("Skipped \(Format.tilde(path, home: env.home)): \(reason)")
                             return false
@@ -149,6 +150,8 @@ public final class Scanner: Sendable {
                 selected = !measurement.incomplete && Self.isStale(measurement.newest, days: days, now: env.now)
             case .staleSince(let date, let days):
                 selected = Self.isStale(date, days: days, now: env.now)
+            case .smallerThan(let limit):
+                selected = !measurement.incomplete && measurement.bytes < limit
             case .staleProject(let date, let days):
                 // Show whichever is more recent: work on the project, or something written into the item.
                 if let inside = measurement.newest, date.map({ inside > $0 }) ?? true { lastUsed = inside }
@@ -172,7 +175,8 @@ public final class Scanner: Sendable {
                 lastUsedLabel: candidate.lastUsedLabel,
                 selectedByDefault: selected,
                 caution: candidate.caution,
-                incomplete: measurement.incomplete
+                incomplete: measurement.incomplete,
+                quitFirst: candidate.quitFirst
             ))
         }
 
@@ -217,12 +221,6 @@ public final class Scanner: Sendable {
         return ProjectScanner(context: context).roots()
     }
 
-    private static func isExcluded(_ paths: [String], by exclusions: [String]) -> Bool {
-        paths.contains { path in
-            exclusions.contains { path == $0 || path.hasPrefix($0 + "/") }
-        }
-    }
-
     private static func isStale(_ date: Date?, days: Int, now: Date) -> Bool {
         guard let date else { return false }
         return now.timeIntervalSince(date) >= Double(days) * 86_400
@@ -242,5 +240,71 @@ public final class Scanner: Sendable {
             total.merge(DirectorySizer.measure(path, isCancelled: { Task.isCancelled }))
         }
         return total
+    }
+}
+
+
+/// The "never cull" list, in a form that actually matches.
+///
+/// People type `~/Developer/vault/`, `./vault`, or a different capitalisation, and an
+/// exclusion that silently fails to match is the dangerous kind of bug. Every path is
+/// expanded, cleaned up and resolved to its real spelling, and compared without regard to
+/// case: excluding slightly too much is the safe direction.
+struct Exclusions: Sendable {
+    let itemIDs: Set<String>
+    let paths: [String]
+
+    init(_ raw: [String], home: String) {
+        var itemIDs = Set<String>()
+        var paths: [String] = []
+        for entry in raw {
+            let trimmed = entry.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty { continue }
+            if trimmed.hasPrefix("/") || trimmed.hasPrefix("~") {
+                let canonical = Self.canonical(trimmed, home: home)
+                // "/" or the home folder itself would exclude everything: not what "never cull this" means.
+                if canonical != "/", canonical != home { paths.append(canonical.lowercased()) }
+            } else {
+                itemIDs.insert(trimmed)
+            }
+        }
+        self.itemIDs = itemIDs
+        self.paths = paths
+    }
+
+    func covers(_ path: String) -> Bool {
+        let candidate = path.lowercased()
+        return paths.contains { candidate == $0 || candidate.hasPrefix($0 + "/") }
+    }
+
+    /// Expands `~`, removes `.`/`..`/doubled and trailing slashes, and resolves symlinks for
+    /// as much of the path as exists.
+    static func canonical(_ raw: String, home: String) -> String {
+        var path = raw
+        if path == "~" {
+            path = home
+        } else if path.hasPrefix("~/") {
+            path = home + path.dropFirst(1)
+        }
+        var parts: [Substring] = []
+        for part in path.split(separator: "/") {
+            if part == "." { continue }
+            if part == ".." {
+                _ = parts.popLast()
+                continue
+            }
+            parts.append(part)
+        }
+        let lexical = "/" + parts.joined(separator: "/")
+        if let real = Posix.realPath(lexical) { return real }
+
+        // Not there (any more): resolve the part that does exist and keep the rest as typed.
+        var existing = lexical
+        var missing: [String] = []
+        while existing != "/", Posix.realPath(existing) == nil {
+            missing.insert(Posix.lastComponent(of: existing), at: 0)
+            existing = Posix.parent(of: existing)
+        }
+        return missing.reduce(Posix.realPath(existing) ?? existing) { Posix.join($0, $1) }
     }
 }

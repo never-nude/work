@@ -6,14 +6,9 @@ extension Rule {
     /// Well-known names in `~/Library/Caches` and `~/.cache` that are not bundle identifiers,
     /// with the apps that should be quit before emptying them.
     private static let knownCacheOwners: [String: (name: String, apps: [String])] = [
-        "google": ("Google Chrome", ["com.google.Chrome", "Google Chrome"]),
         "firefox": ("Firefox", ["org.mozilla.firefox", "Firefox"]),
-        "mozilla": ("Mozilla", ["org.mozilla.firefox", "Firefox"]),
         "bravesoftware": ("Brave", ["com.brave.Browser", "Brave Browser"]),
         "microsoft edge": ("Microsoft Edge", ["com.microsoft.edgemac", "Microsoft Edge"]),
-        "microsoft": ("Microsoft", []),
-        "jetbrains": ("JetBrains IDEs", ["com.jetbrains"]),
-        "adobe": ("Adobe", []),
         "spotify": ("Spotify", ["com.spotify.client", "Spotify"]),
         "sentrycrash": ("Crash reporter data", []),
         "gopls": ("gopls", []),
@@ -35,6 +30,27 @@ extension Rule {
         "rubocop_cache": ("RuboCop", []),
         "jedi": ("Jedi", []),
     ]
+
+    /// Folders in `~/Library/Caches` that belong to a vendor rather than to one app. Their
+    /// contents differ too much to treat as one thing (Chrome's cache sits beside Android
+    /// Studio's Local History), so each child is listed on its own.
+    private static let vendorFolders: [String: String] = [
+        "google": "Google", "jetbrains": "JetBrains", "mozilla": "Mozilla",
+        "microsoft": "Microsoft", "adobe": "Adobe",
+    ]
+
+    /// How one child of a vendor folder is treated.
+    private static func vendorChild(vendor: String, child: String) -> (policy: SelectionPolicy, caution: String?, apps: [String]) {
+        let lower = child.lowercased()
+        if vendor == "google", lower.hasPrefix("chrome") {
+            return (.always, nil, ["com.google.Chrome", "Google Chrome"])
+        }
+        // JetBrains IDEs (and Android Studio, which is one) keep Local History in here.
+        if vendor == "jetbrains" || (vendor == "google" && lower.hasPrefix("androidstudio")) {
+            return (.never, "Includes the IDE's Local History", [])
+        }
+        return (.never, nil, [])
+    }
 
     private static let reverseDNSPrefixes: Set<String> = [
         "com", "org", "net", "io", "dev", "app", "co", "me", "us", "uk", "de", "fr", "jp", "ca", "au",
@@ -68,13 +84,39 @@ extension Rule {
                     if SafetyGuard.isAppleOwnedCache(child.name) || lower.hasPrefix("com.apple.dt.") { continue }
                     if context.isClaimed(parent + "/" + child.name) { continue }
 
+                    if parent == "Library/Caches", let vendor = vendorFolders[lower], child.stat.kind == .directory {
+                        for inner in context.children(of: child.path)
+                        where (inner.stat.kind == .directory || inner.stat.kind == .file) && !inner.name.hasPrefix(".") {
+                            let treatment = vendorChild(vendor: lower, child: inner.name)
+                            var policy = treatment.policy
+                            var caution = treatment.caution
+                            if !treatment.apps.isEmpty, context.env.runningApp(matching: treatment.apps) != nil {
+                                policy = .never
+                                caution = "\(vendor) \(inner.name) is running"
+                            }
+                            found.append(Candidate(
+                                key: parent + "/" + child.name + "/" + inner.name,
+                                title: "\(vendor) \(inner.name)",
+                                subtitle: context.tilde(inner.path),
+                                paths: [inner.path],
+                                action: inner.stat.kind == .directory ? .deleteContents : .delete,
+                                scope: .under([root]),
+                                policy: policy,
+                                caution: caution,
+                                quitFirst: treatment.apps
+                            ))
+                        }
+                        continue
+                    }
+
                     let known = knownCacheOwners[lower]
                     // Reverse-DNS names are app bundle identifiers. Anything else is only
                     // pre-selected when it is a name we recognise.
                     let looksLikeBundleID = looksLikeBundleIdentifier(child.name)
                     var policy: SelectionPolicy = (known != nil || looksLikeBundleID) ? .always : .never
                     var caution: String?
-                    if let running = context.env.runningApp(matching: [child.name] + (known?.apps ?? [])) {
+                    let apps = [child.name] + (known?.apps ?? [])
+                    if let running = context.env.runningApp(matching: apps) {
                         policy = .never
                         caution = "\(known?.name ?? running) is running"
                     }
@@ -86,7 +128,8 @@ extension Rule {
                         action: child.stat.kind == .directory ? .deleteContents : .delete,
                         scope: .under([root]),
                         policy: policy,
-                        caution: caution
+                        caution: caution,
+                        quitFirst: apps
                     ))
                 }
             }
@@ -173,7 +216,8 @@ extension Rule {
                 }
                 found.append(Candidate(
                     key: browser.root, title: browser.name, subtitle: context.tilde(root), paths: paths,
-                    action: .deleteContents, scope: .under([support]), policy: policy, caution: caution
+                    action: .deleteContents, scope: .under([support]), policy: policy, caution: caution,
+                    quitFirst: browser.apps
                 ))
             }
 
@@ -188,13 +232,15 @@ extension Rule {
                 guard !paths.isEmpty else { continue }
                 var policy = SelectionPolicy.always
                 var caution: String?
-                if context.env.runningApp(matching: [child.name] + (electronAliases[lower] ?? [])) != nil {
+                let apps = [child.name] + (electronAliases[lower] ?? [])
+                if context.env.runningApp(matching: apps) != nil {
                     policy = .never
                     caution = "\(child.name) is running"
                 }
                 found.append(Candidate(
                     key: child.name, title: child.name, subtitle: context.tilde(child.path), paths: paths,
-                    action: .deleteContents, scope: .under([support]), policy: policy, caution: caution
+                    action: .deleteContents, scope: .under([support]), policy: policy, caution: caution,
+                    quitFirst: apps
                 ))
             }
             return found
@@ -232,7 +278,8 @@ extension Rule {
                 found.append(Candidate(
                     key: child.name, title: appleContainerNames[lower] ?? child.name,
                     subtitle: context.tilde(caches), paths: [caches],
-                    action: .deleteContents, scope: .under([containers]), policy: policy, caution: caution
+                    action: .deleteContents, scope: .under([containers]), policy: policy, caution: caution,
+                    quitFirst: [child.name]
                 ))
             }
             return found
@@ -251,7 +298,11 @@ extension Rule {
             Location(label: "Yarn", paths: ["Library/Caches/Yarn", ".yarn/berry/cache", ".cache/yarn"]),
             Location(label: "pnpm metadata", paths: ["Library/Caches/pnpm"]),
             Location(label: "Bun", paths: [".bun/install/cache"]),
-            Location(label: "Deno", paths: ["Library/Caches/deno"]),
+            // Deno keeps localStorage and KV databases in the same folder (location_data); only its caches go.
+            Location(label: "Deno", paths: [
+                "Library/Caches/deno/deps", "Library/Caches/deno/remote", "Library/Caches/deno/npm",
+                "Library/Caches/deno/gen", "Library/Caches/deno/registries",
+            ]),
             Location(label: "node-gyp", paths: ["Library/Caches/node-gyp"]),
             Location(label: "Corepack", paths: ["Library/Caches/node/corepack", ".cache/node/corepack"]),
             Location(label: "TypeScript", paths: ["Library/Caches/typescript"]),
