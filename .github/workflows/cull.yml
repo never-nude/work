@@ -18,6 +18,8 @@ concurrency:
 defaults:
   run:
     working-directory: cull
+    # Naming the shell turns on pipefail, so `swift build | tee` fails when the build does.
+    shell: bash
 
 jobs:
   macos:

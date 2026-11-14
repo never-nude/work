@@ -50,6 +50,13 @@ public struct CullProgress: Sendable, Equatable {
     public var current: String
     public var bytesSoFar: Int64
 
+    public init(completed: Int, total: Int, current: String, bytesSoFar: Int64) {
+        self.completed = completed
+        self.total = total
+        self.current = current
+        self.bytesSoFar = bytesSoFar
+    }
+
     public var fraction: Double { total > 0 ? Double(completed) / Double(total) : 0 }
 }
 

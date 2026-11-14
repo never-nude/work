@@ -227,6 +227,13 @@ public struct ScanProgress: Sendable, Equatable {
     public var total: Int
     public var current: String
 
+    public init(phase: Phase, completed: Int, total: Int, current: String) {
+        self.phase = phase
+        self.completed = completed
+        self.total = total
+        self.current = current
+    }
+
     public var fraction: Double {
         guard phase == .measuring, total > 0 else { return 0 }
         return Double(completed) / Double(total)

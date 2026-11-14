@@ -95,9 +95,10 @@ final class AppModel {
         scanGeneration += 1
         let generation = scanGeneration
         let options = AppSettings.scanOptions
-        let task = Task.detached(priority: .userInitiated) { [weak self] in
+        // The model lives as long as the app does, so the background work can hold on to it.
+        let task = Task.detached(priority: .userInitiated) {
             await Scanner(environment: environment, options: options).scan { progress in
-                Task { @MainActor in self?.receive(progress, generation: generation) }
+                Task { @MainActor in self.receive(progress, generation: generation) }
             }
         }
         scanTask = task
@@ -220,9 +221,9 @@ final class AppModel {
         lastSummary = nil
 
         Task {
-            let summary = await Task.detached(priority: .userInitiated) { [weak self] in
+            let summary = await Task.detached(priority: .userInitiated) {
                 await Culler(environment: environment).cull(items) { progress in
-                    Task { @MainActor in self?.receive(progress) }
+                    Task { @MainActor in self.receive(progress) }
                 }
             }.value
             cullProgress = nil
