@@ -106,7 +106,9 @@ jobs:
               echo "::error::Cull.app did not finish its snapshot"; kill "$pid"; cat app.log; exit 1
             fi
           }
-          CULL_SNAPSHOT="$PWD/shots/window.png" snapshot
+          # CULL_PRETEND_DISK shows the stand-in home on a nearly full disk, which is what the app is for.
+          CULL_SNAPSHOT="$PWD/shots/window.png" CULL_PRETEND_DISK=494,11.8 snapshot
+          CULL_SNAPSHOT="$PWD/shots/window-roomy.png" snapshot
           CULL_SNAPSHOT="$PWD/shots/window-expanded.png" CULL_SNAPSHOT_EXPAND=1 snapshot
           test -s shots/window.png || { echo "::error::no snapshot was written"; cat app.log; exit 1; }
 
@@ -120,6 +122,16 @@ jobs:
 
           sips -g pixelWidth -g pixelHeight shots/*.png
           echo "--- app log"; cat app.log
+
+      - name: Put small copies of the snapshots in the log
+        run: |
+          # The artifact store is not reachable from every network, so the log carries a copy too.
+          for name in window window-roomy; do
+            sips -s format jpeg -s formatOptions 72 "shots/$name.png" --out "shots/$name.jpg" > /dev/null
+            echo "-----BEGIN CULL SHOT $name-----"
+            base64 -i "shots/$name.jpg" | fold -w 120
+            echo "-----END CULL SHOT $name-----"
+          done
 
       - uses: actions/upload-artifact@v4
         if: always()
