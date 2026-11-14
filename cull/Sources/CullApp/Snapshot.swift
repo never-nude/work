@@ -4,7 +4,7 @@ import CullCore
 /// Development aid. With `CULL_SNAPSHOT=/path/to.png` set, the app saves a picture of its own
 /// window once the first scan has finished, then quits. CI uses it to check the window renders,
 /// and it is how the README screenshot is made. `CULL_SNAPSHOT_EXPAND=1` opens every category first.
-/// None of this does anything unless `CULL_SNAPSHOT` is set.
+/// Apart from `CULL_APPEARANCE`, none of this does anything unless `CULL_SNAPSHOT` is set.
 @MainActor
 enum Snapshot {
     static var path: String? {
@@ -33,9 +33,14 @@ enum Snapshot {
         path != nil && ProcessInfo.processInfo.environment["CULL_SNAPSHOT_CULL"] == "1"
     }
 
-    /// `CULL_SNAPSHOT_DARK=1` takes the picture in dark mode.
-    static var usesDarkAppearance: Bool {
-        ProcessInfo.processInfo.environment["CULL_SNAPSHOT_DARK"] == "1"
+    /// `CULL_APPEARANCE=dark` (or `light`) forces the app's appearance, whatever the system is set to.
+    /// This one works on its own, without `CULL_SNAPSHOT`.
+    static func applyRequestedAppearance() {
+        switch ProcessInfo.processInfo.environment["CULL_APPEARANCE"] {
+        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        default: break
+        }
     }
 
     /// `CULL_PRETEND_DISK=494,11.8` (total and available, in GB) lets a sandbox home be shown
@@ -49,7 +54,6 @@ enum Snapshot {
 
     static func captureAndQuit() {
         guard let path else { return }
-        if usesDarkAppearance { NSApp.appearance = NSAppearance(named: .darkAqua) }
         Task { @MainActor in
             // Let the list lay out and the selection animation settle.
             try? await Task.sleep(for: .seconds(2))
