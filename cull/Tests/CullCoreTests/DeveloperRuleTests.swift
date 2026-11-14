@@ -188,6 +188,26 @@ final class ProjectRuleTests: XCTestCase {
         XCTAssertEqual(items["reinstalled · node_modules"]?.selectedByDefault, false)
     }
 
+    func testAProjectThatIsRunButNeverEditedKeepsItsDependencies() async throws {
+        let fixture = try Fixture()
+        // Nobody has edited this in over a year...
+        fixture.file("Developer/dashboard/package.json")
+        fixture.file("Developer/dashboard/package-lock.json")
+        fixture.file("Developer/dashboard/src/server.js")
+        fixture.file("Developer/dashboard/node_modules/express/index.js")
+        fixture.file("Developer/dashboard/.next/server/app.js")
+        // ...but the dev server wrote its caches yesterday, so it is clearly in use.
+        fixture.file("Developer/dashboard/node_modules/.vite/deps/_metadata.json", fresh: true)
+        fixture.file("Developer/dashboard/.next/cache/webpack/client.pack", fresh: true)
+
+        let items = artifacts(try await fixture.scan())
+        let modules = try XCTUnwrap(items["dashboard · node_modules"])
+        XCTAssertFalse(modules.selectedByDefault)
+        XCTAssertEqual(items["dashboard · .next"]?.selectedByDefault, false)
+        let used = try XCTUnwrap(modules.lastUsed)
+        XCTAssertEqual(fixture.now.timeIntervalSince(used) / 86_400, 1, accuracy: 0.01, "the date shown is the recent use")
+    }
+
     func testWithoutALockfileNothingIsPreselected() async throws {
         let fixture = try Fixture()
         fixture.file("Developer/loose/package.json")
@@ -242,12 +262,12 @@ final class ProjectRuleTests: XCTestCase {
         fixture.file("Developer/ios/DerivedData/Build/x")
         fixture.file("Developer/crate/Cargo.toml")
         fixture.file("Developer/crate/target/debug/crate")
-        fixture.file("Developer/py/requirements.txt")
+        fixture.file("Developer/py/uv.lock")
         fixture.file("Developer/py/.venv/pyvenv.cfg")
         fixture.file("Developer/py/.venv/lib/python3.13/site-packages/x.py")
         fixture.file("Developer/py2/venv/pyvenv.cfg")
         fixture.file("Developer/py2/venv/lib/x.py")
-        fixture.file("Developer/py2/script.py")
+        fixture.file("Developer/py2/requirements.txt")
 
         let report = try await fixture.scan()
         let items = artifacts(report)
@@ -255,8 +275,9 @@ final class ProjectRuleTests: XCTestCase {
             "pkg · .build", "ios · Pods", "ios · DerivedData", "crate · target", "py · .venv", "py2 · venv",
         ])
         XCTAssertEqual(items["py · .venv"]?.selectedByDefault, true)
-        // Nothing describes how to rebuild this environment, so it is offered but not pre-selected.
+        // A requirements.txt is not a lockfile: what was installed by hand would be lost.
         XCTAssertEqual(items["py2 · venv"]?.selectedByDefault, false)
+        XCTAssertNotNil(items["py2 · venv"]?.caution)
         XCTAssertEqual(report.skippedNotes, [])
     }
 

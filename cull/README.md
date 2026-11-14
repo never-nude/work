@@ -4,7 +4,9 @@ A small native macOS app you open when the disk is getting full. It finds what t
 
 ![Cull scanning a stand-in home folder](docs/screenshot.png)
 
-Requires macOS 14 or newer and the Xcode command line tools. No Xcode project; it's a Swift package.
+*Taken on a CI runner against the stand-in home folder from `Scripts/make-demo-home.py`, with the disk figures simulated to show a nearly full disk.*
+
+Requires macOS 14 or newer and Xcode (built and tested with Xcode 26.6). No Xcode project; it's a Swift package.
 
 ## Build and run
 
@@ -32,7 +34,7 @@ Everything is sorted into three tiers by what it costs you to lose it.
 | **Rebuildable** | Xcode DerivedData per project, device support files, SwiftUI preview simulators, and `node_modules` / `.build` / `Pods` / `.venv` / `.next` / `target` in idle projects | Only when stale |
 | **Your call** | Trash, old downloads and installers, simulator runtimes, simulator contents, iPhone and iPad backups, Xcode archives | Never |
 
-"Stale" means: DerivedData not built in 14 days, a project not touched in 30 days (by file changes or Git activity), downloads not added, changed or opened in 90 days. All three are adjustable in Settings. For device support files the newest per platform is kept.
+"Stale" means: DerivedData not built in 14 days; a project not touched in 30 days (no file changes, no Git activity, and nothing written into the folder itself, so a project you run but never edit still counts as in use); downloads not added, changed or opened in 90 days. Dependencies are only pre-selected when a lockfile can bring them back exactly. All three are adjustable in Settings. For device support files the newest per platform is kept.
 
 Click a row to see what is inside it. Right-click any item to show it in Finder, or choose **Never Cull This** to stop it being offered.
 

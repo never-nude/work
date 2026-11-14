@@ -145,6 +145,12 @@ public final class Scanner: Sendable {
                 selected = !measurement.incomplete && Self.isStale(measurement.newest, days: days, now: env.now)
             case .staleSince(let date, let days):
                 selected = Self.isStale(date, days: days, now: env.now)
+            case .staleProject(let date, let days):
+                // Show whichever is more recent: work on the project, or something written into the item.
+                if let inside = measurement.newest, date.map({ inside > $0 }) ?? true { lastUsed = inside }
+                selected = !measurement.incomplete
+                    && Self.isStale(date, days: days, now: env.now)
+                    && Self.isStale(measurement.newest, days: days, now: env.now)
             }
             // The tier's promise outranks any rule: personal files are never pre-selected.
             if rule.tier == .review { selected = false }

@@ -137,18 +137,19 @@ jobs:
 
           # And the real screen with the app running, light and dark, if the runner allows screen capture.
           capture() {
-            CULL_PRETEND_DISK=494,11.8 "$app" >> app.log 2>&1 &
+            local name=$1
+            shift
+            CULL_PRETEND_DISK=494,11.8 "$app" "$@" >> app.log 2>&1 &
             local pid=$!
             sleep 9
             kill -0 "$pid" 2>/dev/null || { echo "::error::Cull.app exited early"; cat app.log; exit 1; }
-            screencapture -x "shots/$1.png" || echo "screencapture unavailable"
+            screencapture -x "shots/$name.png" || echo "screencapture unavailable"
             kill "$pid" || true
             sleep 1
           }
           capture screen
-          defaults write -g AppleInterfaceStyle Dark
-          capture screen-dark
-          defaults delete -g AppleInterfaceStyle || true
+          # Overriding the appearance default on the command line makes just this launch dark.
+          capture screen-dark -AppleInterfaceStyle Dark
 
           # Last, because it changes the stand-in home: cull from inside the app, then photograph the result.
           CULL_SNAPSHOT="$PWD/shots/window-culled.png" CULL_SNAPSHOT_CULL=1 snapshot

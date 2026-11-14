@@ -8,6 +8,10 @@ enum SelectionPolicy: Sendable {
     case staleTree(days: Int)
     /// Selected once `date` is at least `days` old. An unknown date is never stale.
     case staleSince(Date?, days: Int)
+    /// Selected once `date` is at least `days` old *and* nothing inside the item has changed
+    /// for as long. A dev server or a build writes into these folders, so recent changes
+    /// inside mean the project is in use even if nobody has edited it.
+    case staleProject(Date?, days: Int)
 }
 
 /// Something a rule found, before it has been weighed.

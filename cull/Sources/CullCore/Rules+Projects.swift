@@ -51,9 +51,8 @@ struct ProjectScanner {
         "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb", "bun.lock", "npm-shrinkwrap.json",
     ]
     private static let nodeBuildCaches = [".next", ".nuxt", ".svelte-kit", ".turbo", ".parcel-cache", ".angular"]
-    private static let pythonManifests = [
-        "requirements.txt", "pyproject.toml", "Pipfile", "uv.lock", "poetry.lock", "setup.py", "environment.yml",
-    ]
+    /// A requirements.txt does not count: it rarely lists everything that was installed by hand.
+    private static let pythonLockfiles = ["uv.lock", "poetry.lock", "Pipfile.lock", "pdm.lock"]
 
     /// Build artifacts in `children`, each identified by a neighbour that proves what it is.
     /// A folder merely named `node_modules` or `target` with no manifest beside it is ignored.
@@ -96,10 +95,10 @@ struct ProjectScanner {
         }
         for name in [".venv", "venv"] {
             if let found = folder(name), context.exists(found.path + "/pyvenv.cfg") {
-                let described = pythonManifests.contains(where: names.contains)
+                let locked = pythonLockfiles.contains(where: names.contains)
                 result.append(Artifact(
-                    name: found.name, path: found.path, restorable: described,
-                    warning: described ? nil : "No requirements file found to recreate it from"
+                    name: found.name, path: found.path, restorable: locked,
+                    warning: locked ? nil : "No lockfile; packages installed by hand would be lost"
                 ))
             }
         }
@@ -228,7 +227,7 @@ struct ProjectScanner {
                             paths: [artifact.path],
                             action: .delete,
                             scope: .artifact(root: root, names: [artifact.name]),
-                            policy: artifact.restorable ? .staleSince(activity, days: staleDays) : .never,
+                            policy: artifact.restorable ? .staleProject(activity, days: staleDays) : .never,
                             caution: artifact.warning,
                             lastUsed: activity,
                             lastUsedLabel: "Project last touched"
