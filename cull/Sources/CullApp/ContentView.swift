@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         @Bindable var model = model
@@ -31,7 +32,10 @@ struct ContentView: View {
         } message: {
             Text(model.confirmationMessage)
         }
-        .task { model.start() }
+        .task {
+            model.start()
+            if Snapshot.showsSettings { openSettings() }
+        }
     }
 
     @ViewBuilder

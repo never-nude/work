@@ -132,6 +132,7 @@ jobs:
           CULL_SNAPSHOT="$PWD/shots/window-dark.png" CULL_PRETEND_DISK=494,11.8 CULL_SNAPSHOT_DARK=1 snapshot
           CULL_SNAPSHOT="$PWD/shots/window-review.png" CULL_SNAPSHOT_SCROLL=review snapshot
           CULL_SNAPSHOT="$PWD/shots/window-expanded.png" CULL_SNAPSHOT_EXPAND=1 snapshot
+          CULL_SNAPSHOT="$PWD/shots/window-settings.png" CULL_SNAPSHOT_SETTINGS=1 snapshot
           test -s shots/window.png || { echo "::error::no snapshot was written"; cat app.log; exit 1; }
 
           # And the real screen with the app running, light and dark, if the runner allows screen capture.
@@ -149,22 +150,30 @@ jobs:
           capture screen-dark
           defaults delete -g AppleInterfaceStyle || true
 
+          # Last, because it changes the stand-in home: cull from inside the app, then photograph the result.
+          CULL_SNAPSHOT="$PWD/shots/window-culled.png" CULL_SNAPSHOT_CULL=1 snapshot
+          test ! -e "$CULL_HOME/Developer/atrium-earth/node_modules" || { echo "::error::the app did not cull"; exit 1; }
+          test -e "$CULL_HOME/Developer/atrium-earth/src/App.tsx" || { echo "::error::the app removed project sources"; exit 1; }
+          test -e "$CULL_HOME/Library/Messages/chat.db" || { echo "::error::the app removed something precious"; exit 1; }
+
           sips -g pixelWidth -g pixelHeight shots/*.png
           echo "--- app log"; cat app.log
 
       - name: Put small copies of the snapshots in the log
         run: |
           # The artifact store is not reachable from every network, so the log carries a copy too.
+          # Wide lines keep this to a few hundred log lines.
           emit() {
             echo "-----BEGIN CULL SHOT $1-----"
-            base64 -i "$2" | fold -w 120
+            base64 -i "$2" | fold -w 2000
             echo "-----END CULL SHOT $1-----"
           }
-          if [ -s shots/screen-dark.png ]; then
-            sips -s format jpeg -s formatOptions 60 shots/screen-dark.png --out shots/screen-dark.jpg > /dev/null
-            emit screen-dark shots/screen-dark.jpg
-          fi
-          # Last, so it is nearest the end of the log.
+          for name in screen-dark window-settings window-culled; do
+            if [ -s "shots/$name.png" ]; then
+              sips -s format jpeg -s formatOptions 65 "shots/$name.png" --out "shots/$name.jpg" > /dev/null
+              emit "$name" "shots/$name.jpg"
+            fi
+          done
           emit window shots/window.png
 
       - uses: actions/upload-artifact@v4

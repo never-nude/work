@@ -34,6 +34,7 @@ final class AppModel {
 
     @ObservationIgnored private var scanTask: Task<ScanReport, Never>?
     @ObservationIgnored private var scanGeneration = 0
+    @ObservationIgnored private var snapshotDidCull = false
 
     // MARK: Derived
 
@@ -148,6 +149,12 @@ final class AppModel {
         phase = .ready
 
         if Snapshot.path != nil {
+            // A snapshot of the "after" state: cull once, then photograph the rescan. Sandbox homes only.
+            if Snapshot.cullsFirst, environment?.isSandbox == true, !snapshotDidCull {
+                snapshotDidCull = true
+                cull()
+                return
+            }
             if Snapshot.expandsEverything { expandAll() }
             Snapshot.captureAndQuit()
         }

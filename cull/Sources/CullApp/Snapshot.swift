@@ -22,6 +22,17 @@ enum Snapshot {
         return path == nil || value.isEmpty ? nil : value
     }
 
+    /// `CULL_SNAPSHOT_SETTINGS=1` opens the Settings window and photographs that instead.
+    static var showsSettings: Bool {
+        path != nil && ProcessInfo.processInfo.environment["CULL_SNAPSHOT_SETTINGS"] == "1"
+    }
+
+    /// `CULL_SNAPSHOT_CULL=1` culls the pre-selected items first, so the picture shows the result.
+    /// The model only honours it for a sandbox home.
+    static var cullsFirst: Bool {
+        path != nil && ProcessInfo.processInfo.environment["CULL_SNAPSHOT_CULL"] == "1"
+    }
+
     /// `CULL_SNAPSHOT_DARK=1` takes the picture in dark mode.
     static var usesDarkAppearance: Bool {
         ProcessInfo.processInfo.environment["CULL_SNAPSHOT_DARK"] == "1"
@@ -42,7 +53,13 @@ enum Snapshot {
         Task { @MainActor in
             // Let the list lay out and the selection animation settle.
             try? await Task.sleep(for: .seconds(2))
-            if let window = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }),
+            let visible = NSApp.windows.filter { $0.isVisible && $0.contentView != nil }
+            let isSettings: (NSWindow) -> Bool = { window in
+                (window.identifier?.rawValue ?? "").localizedCaseInsensitiveContains("settings")
+                    || window.title.localizedCaseInsensitiveContains("settings")
+            }
+            let chosen = showsSettings ? visible.first(where: isSettings) : visible.first { !isSettings($0) }
+            if let window = chosen ?? visible.first,
                let view = window.contentView?.superview ?? window.contentView,
                let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
                 view.cacheDisplay(in: view.bounds, to: bitmap)

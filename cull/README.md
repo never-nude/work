@@ -121,7 +121,7 @@ open --env CULL_HOME=/tmp/cull-demo/home --env CULL_DAYS_AHEAD=400 build/Cull.ap
 
 ## Adding a rule
 
-Add a `Rule` in one of the `Rules+*.swift` files and list it in `Catalog.all`. If it reaches somewhere new, the safety guard will refuse it until that location is added to the guard's own allow list as well. That double entry is deliberate.
+Add a `Rule` in one of the `Rules+*.swift` files and list it in `Catalog.all` (`Catalog.swift`). If it reaches somewhere new, the safety guard will refuse it until that location is added to the guard's own allow list as well. That double entry is deliberate.
 
 ## Good to know
 
