@@ -33,7 +33,7 @@ The app talks to YouTube as *you*, so it needs your own (free) Google API projec
 
 ### 3. Build and install
 
-Plug in the iPhone (unlocked, Developer Mode on) and run:
+Needs Xcode 26 or newer. Plug in the iPhone (unlocked, Developer Mode on) and run:
 
 ```bash
 cd GoLive
