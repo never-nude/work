@@ -32,9 +32,9 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
         return s
     }
 
+    /// True only for a real client ID: digits, a dash, letters/digits, then the Google suffix.
     static func isPlausible(_ raw: String) -> Bool {
-        let id = normalize(raw)
-        return id.hasSuffix(".apps.googleusercontent.com") && id.count > 30
+        normalize(raw).range(of: #"^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$"#, options: .regularExpression) != nil
     }
 
     private var clientID: String { Self.normalize(AppSettings.shared.clientID) }
@@ -47,7 +47,7 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
 
     func signIn() async throws {
         guard Self.isPlausible(clientID) else {
-            throw AppError("That doesn't look like a Google OAuth client ID. It ends in .apps.googleusercontent.com")
+            throw AppError("That isn't a Google OAuth client ID. It looks like 1234567890-abc123.apps.googleusercontent.com")
         }
         let verifier = Self.randomString()
         let challenge = Data(SHA256.hash(data: Data(verifier.utf8))).base64URL
@@ -65,18 +65,21 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
         let authURL = components.url!
         let scheme = redirectScheme
 
+        // Captured now, on the main thread, so the system can ask for it from any thread.
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        anchor = scenes.flatMap(\.windows).first(where: \.isKeyWindow) ?? scenes.first?.windows.first
+
         let callback: URL = try await withCheckedThrowingContinuation { continuation in
-            let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: scheme) { url, error in
-                if let url {
-                    continuation.resume(returning: url)
-                } else {
-                    continuation.resume(throwing: error ?? AppError("Sign-in was cancelled."))
-                }
-            }
+            let once = Once()
+            let session = ASWebAuthenticationSession(
+                url: authURL,
+                callbackURLScheme: scheme,
+                completionHandler: Self.handler(continuation, once)
+            )
             session.presentationContextProvider = self
             session.prefersEphemeralWebBrowserSession = false
             self.webSession = session
-            if !session.start() {
+            if !session.start(), once.claim() {
                 continuation.resume(throwing: AppError("Couldn't open the Google sign-in sheet."))
             }
         }
@@ -170,12 +173,39 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
         return Data(bytes).base64URL
     }
 
-    nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        MainActor.assumeIsolated {
-            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow) ?? scenes.first?.windows.first
-            return window ?? ASPresentationAnchor()
+    /// The system may call this back on a background queue, so it must not be tied to the main actor.
+    private nonisolated static func handler(
+        _ continuation: CheckedContinuation<URL, Error>,
+        _ once: Once
+    ) -> @Sendable (URL?, Error?) -> Void {
+        { url, error in
+            guard once.claim() else { return }
+            if let url {
+                continuation.resume(returning: url)
+            } else {
+                continuation.resume(throwing: error ?? AppError("Sign-in was cancelled."))
+            }
         }
+    }
+
+    nonisolated(unsafe) private var anchor: ASPresentationAnchor?
+
+    nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        anchor ?? ASPresentationAnchor()
+    }
+}
+
+/// Guards a continuation against being resumed twice.
+private final class Once: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+
+    func claim() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if done { return false }
+        done = true
+        return true
     }
 }
 

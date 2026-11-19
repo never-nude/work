@@ -3,6 +3,7 @@
 #
 #   ./run.sh                       build + install + launch
 #   ./run.sh <google-client-id>    same, and bake the OAuth client ID into the app
+#   ./run.sh --console             same, and stay attached to the app's log (for crashes)
 #
 # Optional overrides:  TEAM_ID=ABCDE12345  DEVICE="Michael's iPhone"  ./run.sh
 set -euo pipefail
@@ -11,8 +12,24 @@ cd "$(dirname "$0")"
 BUNDLE_ID="work.kushman.GoLive"
 
 # --- Google client ID (remembered locally, never committed) -----------------
-if [ "${1:-}" != "" ]; then echo "$1" > .client_id; fi
+CONSOLE=0
+if [ "${1:-}" = "--console" ]; then CONSOLE=1; shift; fi
+if [ "${1:-}" != "" ]; then
+  CANDIDATE="$(printf '%s' "$1" | tr -d '[:space:]')"
+  if printf '%s' "$CANDIDATE" | grep -Eq '^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$'; then
+    echo "$CANDIDATE" > .client_id
+  else
+    echo "Not a Google client ID: $CANDIDATE"
+    echo "It should look like 1234567890-abc123.apps.googleusercontent.com (copy it from Google Cloud → Clients)."
+    exit 1
+  fi
+fi
 CLIENT_ID="$(cat .client_id 2>/dev/null || true)"
+if ! printf '%s' "$CLIENT_ID" | grep -Eq '^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$'; then
+  rm -f .client_id
+  CLIENT_ID=""
+fi
+echo "Client ID: ${CLIENT_ID:-none baked in (paste it in the app)}"
 
 # --- Signing team -----------------------------------------------------------
 TEAM="${TEAM_ID:-}"
@@ -70,5 +87,9 @@ APP="build/Build/Products/Release-iphoneos/GoLive.app"
 
 # --- Install + launch -------------------------------------------------------
 xcrun devicectl device install app --device "$DEVICE_ID" "$APP"
-xcrun devicectl device process launch --device "$DEVICE_ID" "$BUNDLE_ID" || \
+if [ "$CONSOLE" = "1" ]; then
+  echo "Launching with the app's log attached. Press Ctrl-C to stop."
+  exec xcrun devicectl device process launch --console --terminate-existing --device "$DEVICE_ID" "$BUNDLE_ID"
+fi
+xcrun devicectl device process launch --terminate-existing --device "$DEVICE_ID" "$BUNDLE_ID" || \
   echo "Installed. Unlock the phone and tap GoLive (first launch may need Settings → General → VPN & Device Management → trust)."

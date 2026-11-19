@@ -40,9 +40,15 @@ struct SetupView: View {
                     }
                     .padding(14)
                     .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
-                    Text("The iOS-type client ID from your Google Cloud project. The README in this project walks through creating it.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    if settings.clientID.isEmpty || GoogleAuth.isPlausible(settings.clientID) {
+                        Text("The iOS-type client ID from your Google Cloud project. The README in this project walks through creating it.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("That isn't a client ID yet. It looks like 1234567890-abc123.apps.googleusercontent.com — copy it from Google Cloud → Clients and paste it here.")
+                            .font(.footnote)
+                            .foregroundStyle(Theme.amber)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
