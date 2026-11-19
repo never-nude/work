@@ -51,3 +51,10 @@ Validation actually performed: unsigned iOS device build (`xcodebuild`, Xcode 26
 Open issues / blockers: Needs the owner's Google Cloud OAuth client ID (iOS type, bundle ID `work.kushman.GoLive`) and a first on-device run; `run.sh` device/team auto-detection is untested on real hardware.
 Next step: Follow `GoLive/README.md` on a Mac with the iPhone connected; report any on-device issue.
 Delivery (local, pushed, merged, deployment verified): pushed to the branch above with a draft PR; not merged; nothing deployed.
+
+### 2026-11-19 update — GoLive first on-device run
+
+Completed: sign-in hardening and strict client-ID validation (commit `930fe0c`, CI build green). Owner created the Google Cloud project, enabled YouTube Data API v3, and made an iOS OAuth client; the OAuth app is in Testing mode with the owner as a test user (Google sign-in expires every 7 days until the app is published, which needs a homepage and privacy policy URL on the Branding page).
+Validation actually performed: owner's Mac built, signed, installed, and launched the app on their iPhone via `GoLive/run.sh` (seen in their terminal output). Whether sign-in and an actual YouTube broadcast succeeded was reported only as "job well done" — not independently observed from this session.
+Next step: set the Action Button (Settings → Action Button → Shortcut → GoLive → Go Live); decide whether to merge the draft PR; optionally publish the OAuth app to stop the weekly re-sign-in.
+Delivery: pushed to `claude/intelligent-mccarthy-ikawlj`, draft PR open, not merged.
