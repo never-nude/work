@@ -42,3 +42,12 @@ Validation actually performed:
 Open issues / blockers:
 Next step:
 Delivery (local, pushed, merged, deployment verified):
+
+## 2026-11-19 — GoLive iOS app (Claude Code cloud session)
+
+Task / owner / branch: New iOS app `GoLive/` (one-press YouTube live streaming). Owner: Claude Code cloud session. Branch: `claude/intelligent-mccarthy-ikawlj`.
+Completed: SwiftUI app source, Xcode project (`GoLive/GoLive.xcodeproj`, HaishinKit 2.3.0 via SPM), `GoLive/run.sh` build+install script, `GoLive/README.md` setup guide, CI compile check (`.github/workflows/golive-build.yml`). The static site files are untouched.
+Validation actually performed: see the pull request's "GoLive build" check for the compile result (unsigned device build on a macOS runner). Not run on a physical iPhone and not tested against a real YouTube channel from this session — no Mac or phone was attached.
+Open issues / blockers: Needs the owner's Google Cloud OAuth client ID (iOS type, bundle ID `work.kushman.GoLive`) and a first on-device run; `run.sh` device/team auto-detection is untested on real hardware.
+Next step: Follow `GoLive/README.md` on a Mac with the iPhone connected; report any on-device issue.
+Delivery (local, pushed, merged, deployment verified): pushed to the branch above with a draft PR; not merged; nothing deployed.
