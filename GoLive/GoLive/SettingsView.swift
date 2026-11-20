@@ -40,11 +40,14 @@ struct SettingsView: View {
                     Picker("Quality", selection: $settings.quality) {
                         ForEach(Quality.allCases) { Text($0.label).tag($0) }
                     }
+                    Picker("Stabilization", selection: $settings.stabilization) {
+                        ForEach(Stabilization.allCases) { Text($0.label).tag($0) }
+                    }
                     Toggle("Start on the front camera", isOn: $settings.useFrontCamera)
                 } header: {
                     Text("Broadcast")
                 } footer: {
-                    Text("Hold the phone sideways when you start for a landscape stream. Leaving the app ends the stream.")
+                    Text("Hold the phone sideways when you start for a landscape stream. Leaving the app ends the stream. Stronger stabilization crops the picture a little more.")
                 }
 
                 Section {

@@ -107,7 +107,7 @@ final class LiveController: ObservableObject {
             }
 
             // Camera spin-up and the YouTube calls run side by side.
-            async let capture: Void = broadcaster.startCapture(front: settings.useFrontCamera, quality: settings.quality)
+            async let capture: Void = broadcaster.startCapture(front: settings.useFrontCamera, quality: settings.quality, stabilization: settings.stabilization)
 
             let api = try await api()
             let n = settings.nextNumber

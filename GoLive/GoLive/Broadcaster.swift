@@ -1,4 +1,5 @@
 import AVFoundation
+import QuartzCore
 import HaishinKit
 import RTMPHaishinKit
 import SwiftUI
@@ -11,12 +12,15 @@ final class Broadcaster {
     private var connection: RTMPConnection?
     private var stream: RTMPStream?
     private var statusTask: Task<Void, Never>?
+    private var gate: SyncGate?
     private(set) var isFront = false
+    private var stabilization: Stabilization = .off
 
     /// Called when the RTMP connection drops without us asking it to.
     var onDisconnect: (() -> Void)?
 
-    func startCapture(front: Bool, quality: Quality) async throws {
+    func startCapture(front: Bool, quality: Quality, stabilization: Stabilization) async throws {
+        self.stabilization = stabilization
         let audioSession = AVAudioSession.sharedInstance()
         try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker])
         try audioSession.setActive(true)
@@ -60,12 +64,17 @@ final class Broadcaster {
         try await stream.setAudioSettings(audio)
 
         await stream.setBitRateStrategy(StreamVideoAdaptiveBitRateStrategy(mamimumVideoBitrate: quality.bitrate))
-        await mixer.addOutput(stream)
+        // The gate sits between the camera and the stream so audio and video start in sync
+        // even when stabilization holds frames back.
+        let gate = SyncGate(stream: stream)
+        await mixer.addOutput(gate)
+        self.gate = gate
         self.connection = connection
         self.stream = stream
 
         _ = try await connection.connect(url)
         _ = try await stream.publish(key)
+        gate.arm()
 
         statusTask = Task { [weak self] in
             for await status in await connection.status {
@@ -81,9 +90,12 @@ final class Broadcaster {
     func unpublish() async {
         statusTask?.cancel()
         statusTask = nil
+        if let gate {
+            await mixer.removeOutput(gate)
+        }
+        gate = nil
         if let stream {
             _ = try? await stream.close()
-            await mixer.removeOutput(stream)
         }
         if let connection {
             try? await connection.close()
@@ -112,6 +124,80 @@ final class Broadcaster {
         }
         try await mixer.attachVideo(device, track: 0)
         isFront = front
+        // Chosen after attaching, once the session preset has settled the camera's format.
+        let mode = stabilization.bestMode(for: device)
+        try? await mixer.configuration(video: 0) { unit in
+            unit.preferredVideoStabilizationMode = mode
+        }
+    }
+}
+
+/// Forwards camera and microphone to the stream, dropping the video frames captured before
+/// the stream's first audio sample.
+///
+/// The stream zeroes audio and video timestamps independently at the first sample of each.
+/// Stabilization delivers each frame late but stamped with its capture time, so without this
+/// the first video frame would be older than the first audio sample and the whole broadcast
+/// would play with the picture behind the sound by the stabilizer's delay.
+final class SyncGate: MediaMixerOutput, @unchecked Sendable {
+    /// Never hold video back longer than this, whatever the timestamps say.
+    private static let maxHold: TimeInterval = 2.5
+
+    private let stream: RTMPStream
+    private let lock = NSLock()
+    private var armedAt: TimeInterval?
+    private var firstAudio: TimeInterval?
+    private var open = false
+
+    let videoTrackId: UInt8? = UInt8.max
+    let audioTrackId: UInt8? = UInt8.max
+
+    init(stream: RTMPStream) {
+        self.stream = stream
+    }
+
+    /// Call once the stream is publishing; timing is measured from here.
+    func arm() {
+        lock.lock()
+        armedAt = CACurrentMediaTime()
+        firstAudio = nil
+        open = false
+        lock.unlock()
+    }
+
+    func selectTrack(_ id: UInt8?, mediaType: CMFormatDescription.MediaType) async {}
+
+    func mixer(_ mixer: MediaMixer, didOutput buffer: AVAudioPCMBuffer, when: AVAudioTime) {
+        lock.lock()
+        if armedAt != nil, firstAudio == nil {
+            firstAudio = AVAudioTime.seconds(forHostTime: when.hostTime)
+        }
+        lock.unlock()
+        let stream = stream
+        Task { await stream.append(buffer, when: when) }
+    }
+
+    func mixer(_ mixer: MediaMixer, didOutput sampleBuffer: CMSampleBuffer) {
+        guard shouldPass(sampleBuffer.presentationTimeStamp.seconds) else { return }
+        let stream = stream
+        Task { await stream.append(sampleBuffer) }
+    }
+
+    private func shouldPass(_ captured: TimeInterval) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if open { return true }
+        guard let armedAt else { return true }   // not publishing yet; the stream ignores it anyway
+        if CACurrentMediaTime() - armedAt > Self.maxHold {
+            open = true
+            return true
+        }
+        guard let firstAudio, captured.isFinite else { return false }
+        if captured >= firstAudio {
+            open = true
+            return true
+        }
+        return false
     }
 }
 
