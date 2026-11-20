@@ -122,12 +122,20 @@ final class Broadcaster {
         guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: front ? .front : .back) else {
             throw AppError("No camera available.")
         }
-        try await mixer.attachVideo(device, track: 0)
+        // Best guess from the camera's current format, applied as the camera attaches so a
+        // flip mid-stream never runs unstabilized...
+        let guess = stabilization.bestMode(for: device)
+        try await mixer.attachVideo(device, track: 0) { unit in
+            unit.preferredVideoStabilizationMode = guess
+        }
         isFront = front
-        // Chosen after attaching, once the session preset has settled the camera's format.
+        // ...then corrected once the session preset has settled the format, only if it changed,
+        // since changing it on a running session reconfigures the capture pipeline.
         let mode = stabilization.bestMode(for: device)
-        try? await mixer.configuration(video: 0) { unit in
-            unit.preferredVideoStabilizationMode = mode
+        if mode != guess {
+            try? await mixer.configuration(video: 0) { unit in
+                unit.preferredVideoStabilizationMode = mode
+            }
         }
     }
 }
@@ -142,6 +150,9 @@ final class Broadcaster {
 final class SyncGate: MediaMixerOutput, @unchecked Sendable {
     /// Never hold video back longer than this, whatever the timestamps say.
     private static let maxHold: TimeInterval = 2.5
+    /// If no audio shows up this soon after arming (e.g. the mic is suspended by a phone call),
+    /// stop waiting for it: losing sync is better than losing footage.
+    private static let audioGrace: TimeInterval = 0.3
 
     private let stream: RTMPStream
     private let lock = NSLock()
@@ -156,7 +167,8 @@ final class SyncGate: MediaMixerOutput, @unchecked Sendable {
         self.stream = stream
     }
 
-    /// Call once the stream is publishing; timing is measured from here.
+    /// Call once the stream is publishing. Nothing reaches the stream before this: the stream's
+    /// encoders start inside publish, and a stray early sample would set its timestamp zero.
     func arm() {
         lock.lock()
         armedAt = CACurrentMediaTime()
@@ -169,7 +181,11 @@ final class SyncGate: MediaMixerOutput, @unchecked Sendable {
 
     func mixer(_ mixer: MediaMixer, didOutput buffer: AVAudioPCMBuffer, when: AVAudioTime) {
         lock.lock()
-        if armedAt != nil, firstAudio == nil {
+        guard armedAt != nil else {
+            lock.unlock()
+            return
+        }
+        if firstAudio == nil {
             firstAudio = AVAudioTime.seconds(forHostTime: when.hostTime)
         }
         lock.unlock()
@@ -187,13 +203,16 @@ final class SyncGate: MediaMixerOutput, @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         if open { return true }
-        guard let armedAt else { return true }   // not publishing yet; the stream ignores it anyway
-        if CACurrentMediaTime() - armedAt > Self.maxHold {
-            open = true
-            return true
+        guard let armedAt else { return false }
+        let waited = CACurrentMediaTime() - armedAt
+        guard let firstAudio else {
+            if waited > Self.audioGrace {
+                open = true
+                return true
+            }
+            return false
         }
-        guard let firstAudio, captured.isFinite else { return false }
-        if captured >= firstAudio {
+        if captured >= firstAudio || !captured.isFinite || waited > Self.maxHold {
             open = true
             return true
         }

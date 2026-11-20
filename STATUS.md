@@ -58,3 +58,9 @@ Completed: sign-in hardening and strict client-ID validation (commit `930fe0c`, 
 Validation actually performed: owner's Mac built, signed, installed, and launched the app on their iPhone via `GoLive/run.sh` (seen in their terminal output). Whether sign-in and an actual YouTube broadcast succeeded was reported only as "job well done" — not independently observed from this session.
 Next step: set the Action Button (Settings → Action Button → Shortcut → GoLive → Go Live); decide whether to merge the draft PR; optionally publish the OAuth app to stop the weekly re-sign-in.
 Delivery: pushed to `claude/intelligent-mccarthy-ikawlj`, draft PR open, not merged.
+
+### 2026-11-20 update — stabilization on by default
+
+Completed: `Stabilization` setting (Off / Steady / Smoother / Smoothest), default Steady = iOS 26 `.lowLatency`, falling back to `.standard` (chosen because cinematic modes buffer ~1 s of frames that would be lost if the phone is destroyed). `SyncGate` between mixer and RTMP stream keeps audio/video aligned under stabilization delay; an adversarial review found a pre-arm race (stale frame could set the video zero) — fixed by keeping the gate closed until armed.
+Validation actually performed: CI compile only (see PR checks). Not run on device; which stabilization modes the iPhone 17 Pro supports at 720p/1080p is unverified (the app checks at runtime and steps down).
+Next step: owner pulls and rebuilds; check a Smoother/Smoothest stream for lip sync.
