@@ -47,7 +47,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Broadcast")
                 } footer: {
-                    Text("Hold the phone sideways when you start for a landscape stream. Leaving the app ends the stream. Stronger stabilization crops the picture a little more.")
+                    Text("Hold the phone sideways when you start for a landscape stream. Leaving the app ends the stream. Steady adds no delay. Smoother and Smoothest crop more and hold video back (up to about a second) before sending, and if the phone is destroyed that last stretch never reaches YouTube.")
                 }
 
                 Section {

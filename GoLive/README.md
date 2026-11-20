@@ -67,8 +67,13 @@ Settings → Action Button → **Shortcut** → GoLive → **Go Live**.
   iOS doesn't allow camera capture in the background.
 - Mic mute, camera flip, torch, and a share link to the video are on screen while live.
 - Cancel before it goes live and the empty broadcast is deleted and its number reused.
+- **Stabilization** defaults to **Steady**, Apple's low-latency mode on iOS 26 (standard
+  stabilization on older iOS), which smooths hand shake without holding video back. Smoother and
+  Smoothest are steadier but crop more and delay video by up to about a second, and that last
+  stretch is lost if the phone is destroyed mid-stream. The Camera app's Action mode has no public API, so
+  other apps can't use it.
 - **Settings** (gear, when not live): next stream number, Public / Unlisted / Private
-  (default Public), 720p / 1080p, front camera, and whether opening the app goes live automatically.
+  (default Public), 720p / 1080p, stabilization, front camera, and whether opening the app goes live automatically.
 
 ## How it works
 

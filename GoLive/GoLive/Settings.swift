@@ -17,30 +17,38 @@ enum Quality: String, CaseIterable, Identifiable {
     var bitrate: Int { self == .hd720 ? 4_000_000 : 6_000_000 }
 }
 
-/// How hard the camera smooths out hand shake. Stronger modes crop more of the frame and
-/// hold each frame back longer before it can be sent.
+/// How hard the camera smooths out hand shake.
+///
+/// Apple's smoother modes look ahead at upcoming frames, so they hold video back before it can be
+/// sent; developers report about a second for the extended mode. If the phone is destroyed, that
+/// held-back video never reaches YouTube. `steady` adds no delay, which suits footage that has to
+/// survive the phone.
 enum Stabilization: String, CaseIterable, Identifiable, Sendable {
-    case off, standard, strong, maximum
+    case off, steady, smoother, smoothest
     var id: String { rawValue }
     var label: String {
         switch self {
         case .off: return "Off"
-        case .standard: return "Standard"
-        case .strong: return "Strong"
-        case .maximum: return "Maximum"
+        case .steady: return "Steady"
+        case .smoother: return "Smoother"
+        case .smoothest: return "Smoothest"
         }
     }
 
     /// Modes to try, best first; the first one the camera's current format supports wins.
+    /// (A mode the format doesn't support would silently turn stabilization off, so it is checked.)
     var candidates: [AVCaptureVideoStabilizationMode] {
         switch self {
         case .off:
             return []
-        case .standard:
+        case .steady:
+            if #available(iOS 26.0, *) {
+                return [.lowLatency, .standard]
+            }
             return [.standard]
-        case .strong:
+        case .smoother:
             return [.cinematic, .standard]
-        case .maximum:
+        case .smoothest:
             if #available(iOS 18.0, *) {
                 return [.cinematicExtendedEnhanced, .cinematicExtended, .cinematic, .standard]
             }
@@ -96,7 +104,7 @@ final class AppSettings: ObservableObject {
         quality = Quality(rawValue: defaults.string(forKey: "quality") ?? "") ?? .hd720
         goLiveOnOpen = defaults.object(forKey: "goLiveOnOpen") as? Bool ?? true
         useFrontCamera = defaults.bool(forKey: "useFrontCamera")
-        stabilization = Stabilization(rawValue: defaults.string(forKey: "stabilization") ?? "") ?? .strong
+        stabilization = Stabilization(rawValue: defaults.string(forKey: "stabilization") ?? "") ?? .steady
         channelTitle = defaults.string(forKey: "channelTitle") ?? ""
         let baked = (Bundle.main.object(forInfoDictionaryKey: "GoogleClientID") as? String) ?? ""
         let saved = defaults.string(forKey: "clientID") ?? ""
