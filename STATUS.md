@@ -64,3 +64,10 @@ Delivery: pushed to `claude/intelligent-mccarthy-ikawlj`, draft PR open, not mer
 Completed: `Stabilization` setting (Off / Steady / Smoother / Smoothest), default Steady = iOS 26 `.lowLatency`, falling back to `.standard` (chosen because cinematic modes buffer ~1 s of frames that would be lost if the phone is destroyed). `SyncGate` between mixer and RTMP stream keeps audio/video aligned under stabilization delay; an adversarial review found a pre-arm race (stale frame could set the video zero) — fixed by keeping the gate closed until armed.
 Validation actually performed: CI compile only (see PR checks). Not run on device; which stabilization modes the iPhone 17 Pro supports at 720p/1080p is unverified (the app checks at runtime and steps down).
 Next step: owner pulls and rebuilds; check a Smoother/Smoothest stream for lip sync.
+
+### 2026-11-21 update — first verified live stream
+
+Validation actually performed: owner streamed from the iPhone with the diagnostics build (`c64a3d7`); the app log showed YouTube "ingest active, health good", LIVE 7 s after start, 70 s of 1080p at ~30 fps / 6 Mbps, clean end. Replay appeared on the channel ("Processing will begin shortly"). On this phone the 1080p format offers `.standard` stabilization, not `.lowLatency`.
+Completed since: in-app Diagnostics log + stream-health polling (`12ca45f`/`c64a3d7`); leftover empty broadcasts deleted on launch (`ed00331`). An "Upcoming" placeholder from an earlier interrupted start predates that tracking and must be deleted by hand once.
+Open: the earlier "stuck at Upcoming" report did not reproduce; cause unknown (possibly checked before the ~7 s flip). Smoother/Smoothest lip-sync not yet checked on device.
+Delivery: pushed; draft PR open; not merged.
