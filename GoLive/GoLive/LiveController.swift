@@ -80,6 +80,7 @@ final class LiveController: ObservableObject {
 
     private func step(_ message: String) throws {
         try Task.checkCancellation()
+        diag("step: \(message)")
         phase = .starting(message)
     }
 
@@ -96,6 +97,8 @@ final class LiveController: ObservableObject {
         uiRotation = 0
         isFront = settings.useFrontCamera
         title = "Live stream \(settings.nextNumber)"
+        Diag.shared.clear()
+        diag("start: \(title), \(settings.privacy.rawValue), \(settings.quality.label), stabilization \(settings.stabilization.rawValue), front \(settings.useFrontCamera)")
         phase = .starting("Waking the camera")
         UIApplication.shared.isIdleTimerDisabled = true
 
@@ -114,12 +117,14 @@ final class LiveController: ObservableObject {
             title = "Live stream \(n)"
             try step("Creating \(title)")
             let id = try await api.createBroadcast(title: title, privacy: settings.privacy)
+            diag("broadcast created \(id)")
             broadcastID = id
             number = n
             settings.nextNumber = n + 1
             watchURL = URL(string: "https://youtu.be/\(id)")
 
             let ingest = try await boundIngest(api: api, broadcastID: id)
+            diag("bound to stream \(ingest.streamID) at \(ingest.url)")
             try await capture
 
             try step("Connecting to YouTube")
@@ -131,6 +136,7 @@ final class LiveController: ObservableObject {
             try await monitor(broadcastID: id)
         } catch {
             if Task.isCancelled { return }   // stop() owns the teardown
+            diag("failed: \(describe(error)) [\(error)]")
             let discarded = await closeOut()
             phase = .failed(describe(error) + (discarded ? "" : "\n\(title) was already created on YouTube."))
         }
@@ -159,6 +165,7 @@ final class LiveController: ObservableObject {
     private func monitor(broadcastID id: String) async throws {
         let began = Date()
         var lastNudge = Date()
+        var polls = 0
         while true {
             try await Task.sleep(nanoseconds: (sawLive ? 30 : 2) * 1_000_000_000)
             let status: String?
@@ -166,12 +173,27 @@ final class LiveController: ObservableObject {
                 status = try await api().lifeCycleStatus(broadcastID: id)
             } catch {
                 try Task.checkCancellation()
+                diag("poll failed: \(error)")
                 continue   // a flaky network poll shouldn't kill a healthy stream
             }
             try Task.checkCancellation()
+            polls += 1
+            if !sawLive, polls % 2 == 0, let streamID = settings.streamID,
+               let health = try? await api().streamHealth(streamID: streamID) {
+                try Task.checkCancellation()
+                diag("youtube: broadcast \(status ?? "gone"), ingest \(health.stream), health \(health.health)")
+                if health.stream == "active" {
+                    phase = .starting("YouTube has the video, going live")
+                } else {
+                    phase = .starting("Sending video, YouTube hasn't received it yet")
+                }
+            } else {
+                diag("youtube: broadcast \(status ?? "gone")")
+            }
             switch status {
             case "live":
                 if !sawLive {
+                    diag("LIVE after \(Int(Date().timeIntervalSince(began))) s")
                     sawLive = true
                     startedAt = Date()
                     phase = .live
@@ -184,11 +206,16 @@ final class LiveController: ObservableObject {
             default:
                 if sawLive { break }
                 if Date().timeIntervalSince(began) > 120 {
-                    throw AppError("YouTube never picked up the video. Check your connection and try again.")
+                    throw AppError("YouTube never picked up the video. Open Diagnostics from the gear icon to see where it stopped.")
                 }
                 if Date().timeIntervalSince(lastNudge) > 12 {
                     lastNudge = Date()
-                    try? await api().transition(broadcastID: id, to: "live")
+                    do {
+                        try await api().transition(broadcastID: id, to: "live")
+                        diag("asked YouTube to go live")
+                    } catch {
+                        diag("go-live request refused: \(error)")
+                    }
                 }
             }
         }
@@ -252,6 +279,7 @@ final class LiveController: ObservableObject {
 
     private func handleDisconnect() {
         guard isBusy, let target = publishTarget, reconnectTask == nil else { return }
+        diag("rtmp dropped, reconnecting")
         isReconnecting = true
         reconnectTask = Task {
             defer { reconnectTask = nil }

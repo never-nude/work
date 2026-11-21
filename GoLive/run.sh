@@ -3,7 +3,7 @@
 #
 #   ./run.sh                       build + install + launch
 #   ./run.sh <google-client-id>    same, and bake the OAuth client ID into the app
-#   ./run.sh --console             same, and stay attached to the app's log (for crashes)
+#   ./run.sh --console             same, and stay attached to the app's log (shows every step of a stream)
 #
 # Optional overrides:  TEAM_ID=ABCDE12345  DEVICE="Michael's iPhone"  ./run.sh
 set -euo pipefail

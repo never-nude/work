@@ -224,6 +224,7 @@ private struct ResultScreen: View {
     let headline: String
     let detail: String
     @Binding var showSettings: Bool
+    @State private var showDiagnostics = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -252,6 +253,13 @@ private struct ResultScreen: View {
                 .tint(.white)
                 .padding(.top, 18)
             }
+            Button { showDiagnostics = true } label: {
+                Label("Diagnostics", systemImage: "stethoscope")
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+            }
+            .tint(.white)
+            .padding(.top, 12)
+            .sheet(isPresented: $showDiagnostics) { DiagnosticsView() }
             Spacer()
             GoButton(label: "GO AGAIN", diameter: 132, action: controller.start)
             Spacer()

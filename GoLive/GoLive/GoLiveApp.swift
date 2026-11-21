@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct GoLiveApp: App {
+
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var controller = LiveController.shared
     @StateObject private var settings = AppSettings.shared

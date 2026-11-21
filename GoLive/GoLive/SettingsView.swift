@@ -4,6 +4,7 @@ struct SettingsView: View {
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var auth: GoogleAuth
     @Environment(\.dismiss) private var dismiss
+    @State private var showDiagnostics = false
 
     var body: some View {
         NavigationStack {
@@ -59,6 +60,12 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Button("Diagnostics") { showDiagnostics = true }
+                } footer: {
+                    Text("A log of the last run. Share it if a stream doesn't go live.")
+                }
+
+                Section {
                     LabeledContent("Channel", value: settings.channelTitle.isEmpty ? "Connected" : settings.channelTitle)
                     Button("Sign out", role: .destructive) {
                         auth.signOut()
@@ -68,6 +75,7 @@ struct SettingsView: View {
                     Text("YouTube")
                 }
             }
+            .sheet(isPresented: $showDiagnostics) { DiagnosticsView() }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

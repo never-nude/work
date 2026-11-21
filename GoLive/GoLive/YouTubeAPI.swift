@@ -49,6 +49,7 @@ struct YouTubeAPI {
         guard (200..<300).contains(status) else {
             let error = json["error"] as? [String: Any]
             let first = (error?["errors"] as? [[String: Any]])?.first
+            diag("YouTube \(method) \(path) -> HTTP \(status) \(first?["reason"] as? String ?? "") \((error?["message"] as? String ?? "").prefix(160))")
             throw APIError(
                 status: status,
                 reason: first?["reason"] as? String ?? "",
@@ -115,6 +116,17 @@ struct YouTubeAPI {
         let json = try await call("GET", "liveBroadcasts", query: ["part": "status", "id": broadcastID])
         let item = (json["items"] as? [[String: Any]])?.first
         return (item?["status"] as? [String: Any])?["lifeCycleStatus"] as? String
+    }
+
+    /// What YouTube's ingest sees: streamStatus ("active" means data is arriving) and
+    /// healthStatus ("good", "ok", "bad", "noData").
+    func streamHealth(streamID: String) async throws -> (stream: String, health: String) {
+        let json = try await call("GET", "liveStreams", query: ["part": "status", "id": streamID])
+        let item = (json["items"] as? [[String: Any]])?.first
+        let status = item?["status"] as? [String: Any]
+        let stream = status?["streamStatus"] as? String ?? "missing"
+        let health = (status?["healthStatus"] as? [String: Any])?["status"] as? String ?? "unknown"
+        return (stream, health)
     }
 
     func transition(broadcastID: String, to status: String) async throws {

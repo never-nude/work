@@ -12,6 +12,7 @@ final class Broadcaster {
     private var connection: RTMPConnection?
     private var stream: RTMPStream?
     private var statusTask: Task<Void, Never>?
+    private var statsTask: Task<Void, Never>?
     private var gate: SyncGate?
     private(set) var isFront = false
     private var stabilization: Stabilization = .off
@@ -31,6 +32,36 @@ final class Broadcaster {
         try await attachCamera(front: front)
         try await mixer.attachAudio(AVCaptureDevice.default(for: .audio))
         await mixer.startRunning()
+        diag("capture running: preset \(quality.label), stabilization setting \(stabilization.rawValue), active mode \(await activeStabilizationDescription())")
+    }
+
+    /// What the capture connection is really doing, after the session settled.
+    private func activeStabilizationDescription() async -> String {
+        final class Box: @unchecked Sendable { var value = "unknown" }
+        let box = Box()
+        try? await mixer.configuration(video: 0) { unit in
+            guard let connection = unit.output?.connections.first else {
+                box.value = "no connection"
+                return
+            }
+            box.value = Self.describe(connection.activeVideoStabilizationMode) + " (asked \(Self.describe(connection.preferredVideoStabilizationMode)))"
+        }
+        return box.value
+    }
+
+    static func describe(_ mode: AVCaptureVideoStabilizationMode) -> String {
+        switch mode {
+        case .off: return "off"
+        case .standard: return "standard"
+        case .cinematic: return "cinematic"
+        case .cinematicExtended: return "cinematicExtended"
+        case .previewOptimized: return "previewOptimized"
+        case .auto: return "auto"
+        default:
+            if #available(iOS 18.0, *), mode == .cinematicExtendedEnhanced { return "cinematicExtendedEnhanced" }
+            if #available(iOS 26.0, *), mode == .lowLatency { return "lowLatency" }
+            return "mode \(mode.rawValue)"
+        }
     }
 
     func stopCapture() async {
@@ -72,17 +103,31 @@ final class Broadcaster {
         self.connection = connection
         self.stream = stream
 
-        _ = try await connection.connect(url)
-        _ = try await stream.publish(key)
+        diag("rtmp connecting to \(url) (\(portrait ? "portrait" : "landscape") \(video.videoSize.width)x\(video.videoSize.height) @ \(video.bitRate / 1000) kbps)")
+        let connected = try await connection.connect(url)
+        diag("rtmp connected: \(connected.status?.code ?? "no status") \(connected.status?.description ?? "")")
+        let published = try await stream.publish(key)
+        diag("rtmp publishing: \(published.status?.code ?? "no status") \(published.status?.description ?? "")")
         gate.arm()
 
         statusTask = Task { [weak self] in
             for await status in await connection.status {
                 if Task.isCancelled { return }
+                diag("rtmp status: \(status.code) \(status.description)")
                 if status.code == RTMPConnection.Code.connectClosed.rawValue || status.level == "error" {
                     self?.onDisconnect?()
                     return
                 }
+            }
+        }
+        statsTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                guard let self, let stream = self.stream, let gate = self.gate else { return }
+                let fps = await stream.currentFPS
+                let bytes = await stream.info.byteCount
+                let state = await stream.readyState
+                diag("stats: \(gate.counts) | encoder \(fps) fps, \(bytes / 1024) KB sent, stream \(state)")
             }
         }
     }
@@ -90,6 +135,8 @@ final class Broadcaster {
     func unpublish() async {
         statusTask?.cancel()
         statusTask = nil
+        statsTask?.cancel()
+        statsTask = nil
         if let gate {
             await mixer.removeOutput(gate)
         }
@@ -159,6 +206,13 @@ final class SyncGate: MediaMixerOutput, @unchecked Sendable {
     private var armedAt: TimeInterval?
     private var firstAudio: TimeInterval?
     private var open = false
+    private var videoIn = 0, videoOut = 0, audioIn = 0, audioOut = 0
+
+    var counts: String {
+        lock.lock()
+        defer { lock.unlock() }
+        return "video in \(videoIn) out \(videoOut), audio in \(audioIn) out \(audioOut), gate \(open ? "open" : "closed")"
+    }
 
     let videoTrackId: UInt8? = UInt8.max
     let audioTrackId: UInt8? = UInt8.max
@@ -181,13 +235,16 @@ final class SyncGate: MediaMixerOutput, @unchecked Sendable {
 
     func mixer(_ mixer: MediaMixer, didOutput buffer: AVAudioPCMBuffer, when: AVAudioTime) {
         lock.lock()
+        audioIn += 1
         guard armedAt != nil else {
             lock.unlock()
             return
         }
         if firstAudio == nil {
             firstAudio = AVAudioTime.seconds(forHostTime: when.hostTime)
+            diag("gate: first audio at \(String(format: "%.3f", firstAudio ?? 0)), now \(String(format: "%.3f", CACurrentMediaTime()))")
         }
+        audioOut += 1
         lock.unlock()
         let stream = stream
         Task { await stream.append(buffer, when: when) }
@@ -202,18 +259,23 @@ final class SyncGate: MediaMixerOutput, @unchecked Sendable {
     private func shouldPass(_ captured: TimeInterval) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        if open { return true }
+        videoIn += 1
+        if open { videoOut += 1; return true }
         guard let armedAt else { return false }
         let waited = CACurrentMediaTime() - armedAt
         guard let firstAudio else {
             if waited > Self.audioGrace {
                 open = true
+                videoOut += 1
+                diag("gate: opened after \(String(format: "%.2f", waited)) s with no audio; dropped \(videoIn - videoOut) frames")
                 return true
             }
             return false
         }
         if captured >= firstAudio || !captured.isFinite || waited > Self.maxHold {
             open = true
+            videoOut += 1
+            diag("gate: opened after \(String(format: "%.2f", waited)) s (frame \(String(format: "%.3f", captured)) vs audio \(String(format: "%.3f", firstAudio))); dropped \(videoIn - videoOut) frames")
             return true
         }
         return false
