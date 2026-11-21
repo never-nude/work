@@ -84,6 +84,10 @@ xcodebuild -project GoLive.xcodeproj -scheme GoLive -configuration Release \
 
 APP="build/Build/Products/Release-iphoneos/GoLive.app"
 [ -d "$APP" ] || { echo "Build failed. Re-run with: xcodebuild ... (see run.sh) for the full log."; exit 1; }
+if [ -n "$(find GoLive -name '*.swift' -newer "$APP/GoLive" 2>/dev/null)" ]; then
+  echo "Build failed (the app on disk is older than the source). Fix the errors above and re-run."
+  exit 1
+fi
 
 # --- Install + launch -------------------------------------------------------
 xcrun devicectl device install app --device "$DEVICE_ID" "$APP"

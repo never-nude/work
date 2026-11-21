@@ -49,7 +49,7 @@ final class Broadcaster {
         return box.value
     }
 
-    static func describe(_ mode: AVCaptureVideoStabilizationMode) -> String {
+    nonisolated static func describe(_ mode: AVCaptureVideoStabilizationMode) -> String {
         switch mode {
         case .off: return "off"
         case .standard: return "standard"
