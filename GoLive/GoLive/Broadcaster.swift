@@ -106,6 +106,8 @@ final class Broadcaster {
         diag("rtmp connecting to \(url) (\(portrait ? "portrait" : "landscape") \(video.videoSize.width)x\(video.videoSize.height) @ \(video.bitRate / 1000) kbps)")
         let connected = try await connection.connect(url)
         diag("rtmp connected: \(connected.status?.code ?? "no status") \(connected.status?.description ?? "")")
+        let primed = await gate.primeStream()
+        diag("stream header: \(primed)")
         let published = try await stream.publish(key)
         diag("rtmp publishing: \(published.status?.code ?? "no status") \(published.status?.description ?? "")")
         gate.arm()
@@ -207,6 +209,10 @@ final class SyncGate: MediaMixerOutput, @unchecked Sendable {
     private var firstAudio: TimeInterval?
     private var open = false
     private var videoIn = 0, videoOut = 0, audioIn = 0, audioOut = 0
+    // The newest samples seen before publishing, kept only to show the stream its formats.
+    private var primed = false
+    private var latestVideo: CMSampleBuffer?
+    private var latestAudio: (buffer: AVAudioPCMBuffer, when: AVAudioTime)?
 
     var counts: String {
         lock.lock()
@@ -219,6 +225,51 @@ final class SyncGate: MediaMixerOutput, @unchecked Sendable {
 
     init(stream: RTMPStream) {
         self.stream = stream
+    }
+
+    /// Shows the stream one video frame and one audio buffer before it publishes.
+    ///
+    /// The stream describes itself to YouTube (resolution, codec, frame rate, audio format) in the
+    /// header it sends when publishing, built from the formats of samples it has already seen.
+    /// Its encoders aren't running yet, so these two samples are only inspected, never sent; and
+    /// this is awaited before publish, so it can't overlap the encoders starting.
+    /// Returns a short description for the diagnostics log.
+    func primeStream() async -> String {
+        // The camera is normally already running; allow it up to half a second if not.
+        var tries = 0
+        while !hasPrimingSamples && tries < 25 {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+            tries += 1
+        }
+        let (video, audio) = takePrimingSamples()
+        if let video {
+            await stream.append(video)
+        }
+        if let audio {
+            await stream.append(audio.buffer, when: audio.when)
+        }
+        switch (video != nil, audio != nil) {
+        case (true, true): return "video and audio formats included"
+        case (true, false): return "video format only (no audio yet)"
+        case (false, true): return "audio format only (no video yet)"
+        case (false, false): return "empty (no samples yet)"
+        }
+    }
+
+    private var hasPrimingSamples: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return latestVideo != nil && latestAudio != nil
+    }
+
+    private func takePrimingSamples() -> (CMSampleBuffer?, (buffer: AVAudioPCMBuffer, when: AVAudioTime)?) {
+        lock.lock()
+        defer { lock.unlock() }
+        primed = true
+        let samples = (latestVideo, latestAudio)
+        latestVideo = nil
+        latestAudio = nil
+        return samples
     }
 
     /// Call once the stream is publishing. Nothing reaches the stream before this: the stream's
@@ -237,6 +288,7 @@ final class SyncGate: MediaMixerOutput, @unchecked Sendable {
         lock.lock()
         audioIn += 1
         guard armedAt != nil else {
+            if !primed { latestAudio = (buffer, when) }
             lock.unlock()
             return
         }
@@ -251,17 +303,21 @@ final class SyncGate: MediaMixerOutput, @unchecked Sendable {
     }
 
     func mixer(_ mixer: MediaMixer, didOutput sampleBuffer: CMSampleBuffer) {
-        guard shouldPass(sampleBuffer.presentationTimeStamp.seconds) else { return }
+        guard shouldPass(sampleBuffer) else { return }
         let stream = stream
         Task { await stream.append(sampleBuffer) }
     }
 
-    private func shouldPass(_ captured: TimeInterval) -> Bool {
+    private func shouldPass(_ sampleBuffer: CMSampleBuffer) -> Bool {
+        let captured = sampleBuffer.presentationTimeStamp.seconds
         lock.lock()
         defer { lock.unlock() }
         videoIn += 1
         if open { videoOut += 1; return true }
-        guard let armedAt else { return false }
+        guard let armedAt else {
+            if !primed { latestVideo = sampleBuffer }
+            return false
+        }
         let waited = CACurrentMediaTime() - armedAt
         guard let firstAudio else {
             if waited > Self.audioGrace {
