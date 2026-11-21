@@ -1,0 +1,5 @@
+build/
+.client_id
+xcuserdata/
+*.xcuserstate
+.DS_Store
