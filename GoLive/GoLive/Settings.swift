@@ -111,6 +111,12 @@ final class AppSettings: ObservableObject {
         clientID = saved.isEmpty ? baked : saved
     }
 
+    /// Broadcasts this app created that may still be sitting empty on YouTube.
+    var pendingBroadcastIDs: [String] {
+        get { defaults.stringArray(forKey: "pendingBroadcastIDs") ?? [] }
+        set { defaults.set(newValue, forKey: "pendingBroadcastIDs") }
+    }
+
     func forgetStream() {
         streamID = nil
         ingestURL = nil

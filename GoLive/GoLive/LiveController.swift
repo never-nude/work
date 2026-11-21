@@ -59,6 +59,33 @@ final class LiveController: ObservableObject {
         guard pendingAutoStart else { return }
         pendingAutoStart = false
         if settings.goLiveOnOpen { start() }
+        Task { await cleanUpLeftovers() }
+    }
+
+    /// Removes empty "Upcoming" broadcasts left behind when an earlier start was interrupted
+    /// before the app could delete them (phone locked, app killed, network gone).
+    private func cleanUpLeftovers() async {
+        let leftovers = settings.pendingBroadcastIDs.filter { $0 != broadcastID }
+        guard !leftovers.isEmpty, auth.isSignedIn, let api = try? await api() else { return }
+        for id in leftovers {
+            let status = try? await api.lifeCycleStatus(broadcastID: id)
+            switch status {
+            case "ready", "created":
+                if (try? await api.deleteBroadcast(id)) != nil {
+                    diag("deleted leftover empty broadcast \(id)")
+                    settings.pendingBroadcastIDs.removeAll { $0 == id }
+                }
+            case nil:
+                settings.pendingBroadcastIDs.removeAll { $0 == id }
+            case "live", "liveStarting", "testing", "testStarting":
+                // Still running from a previous launch; end it rather than strand it.
+                try? await api.transition(broadcastID: id, to: "complete")
+                diag("ended stranded broadcast \(id)")
+                settings.pendingBroadcastIDs.removeAll { $0 == id }
+            default:
+                settings.pendingBroadcastIDs.removeAll { $0 == id }
+            }
+        }
     }
 
     func appDidBackground() {
@@ -119,6 +146,7 @@ final class LiveController: ObservableObject {
             let id = try await api.createBroadcast(title: title, privacy: settings.privacy)
             diag("broadcast created \(id)")
             broadcastID = id
+            settings.pendingBroadcastIDs.append(id)
             number = n
             settings.nextNumber = n + 1
             watchURL = URL(string: "https://youtu.be/\(id)")
@@ -265,6 +293,9 @@ final class LiveController: ObservableObject {
             default:
                 break
             }
+        }
+        if let id = broadcastID {
+            settings.pendingBroadcastIDs.removeAll { $0 == id }
         }
         broadcastID = nil
         publishTarget = nil
