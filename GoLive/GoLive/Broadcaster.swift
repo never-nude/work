@@ -235,9 +235,12 @@ final class SyncGate: MediaMixerOutput, @unchecked Sendable {
     /// this is awaited before publish, so it can't overlap the encoders starting.
     /// Returns a short description for the diagnostics log.
     func primeStream() async -> String {
-        // The camera is normally already running; allow it up to half a second if not.
+        // Both are normally already here. Give the camera up to half a second, but the mic only
+        // a moment: if it's cut off (a phone call), waiting on it would only delay reconnects.
         var tries = 0
-        while !hasPrimingSamples && tries < 25 {
+        while true {
+            let (hasVideo, hasAudio) = primingSamplesPresent
+            if (hasVideo || tries >= 25) && (hasAudio || tries >= 5) { break }
             try? await Task.sleep(nanoseconds: 20_000_000)
             tries += 1
         }
@@ -256,10 +259,10 @@ final class SyncGate: MediaMixerOutput, @unchecked Sendable {
         }
     }
 
-    private var hasPrimingSamples: Bool {
+    private var primingSamplesPresent: (video: Bool, audio: Bool) {
         lock.lock()
         defer { lock.unlock() }
-        return latestVideo != nil && latestAudio != nil
+        return (latestVideo != nil, latestAudio != nil)
     }
 
     private func takePrimingSamples() -> (CMSampleBuffer?, (buffer: AVAudioPCMBuffer, when: AVAudioTime)?) {
